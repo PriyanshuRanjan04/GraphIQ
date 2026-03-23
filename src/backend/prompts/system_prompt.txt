@@ -1,0 +1,6 @@
+# GraphIQ System Prompt
+# This is the master prompt injected into the LLM on every request.
+# It defines the LLM's role, the graph schema, and strict behavioural rules.
+# IMPLEMENTATION: Fill in with full schema context in Phase 4.
+
+[PLACEHOLDER — implement in Phase 4: LLM + Guardrails]

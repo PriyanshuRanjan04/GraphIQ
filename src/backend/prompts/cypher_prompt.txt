@@ -1,0 +1,7 @@
+# GraphIQ Cypher Prompt
+# Instructs the LLM to translate a natural language query into a valid Cypher query.
+# Receives: user query + graph schema context
+# Returns: a single, executable Cypher MATCH...RETURN statement
+# IMPLEMENTATION: Fill in with schema and few-shot examples in Phase 4.
+
+[PLACEHOLDER — implement in Phase 4: LLM + Guardrails]

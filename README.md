@@ -1,198 +1,82 @@
-# GraphIQ 🔍
+# GraphIQ
+> Context Graph System with LLM-Powered Query Interface
 
-**A Graph + LLM system that unifies fragmented business data into a connected graph and lets you query it in plain English.**
-
----
-
-## 🧠 What Is GraphIQ?
-
-In real-world enterprise systems, data is spread across many entities — Orders, Deliveries, Invoices, Payments — that are related but not easily traceable in traditional tabular formats.
-
-**GraphIQ bridges that gap by:**
-
-- Modelling business data as an **interactive knowledge graph**
-- Allowing users to explore entity relationships visually
-- Enabling **natural language queries** powered by an LLM
-- Translating user intent into **Cypher queries**, executing them on Neo4j, and returning grounded, data-backed answers
-
----
-
-## 🎯 Key Features
-
-| Feature | Description |
-|---|---|
-| 📊 **Graph Visualization** | Interactive node/edge explorer built with Cytoscape.js |
-| 💬 **Natural Language Queries** | Ask questions like *"Show all incomplete orders"* |
-| 🤖 **LLM Query Translation** | Groq Llama 3 70B dynamically generates Cypher from English |
-| 🛡️ **Guardrails** | Rejects off-topic, irrelevant, or destructive queries |
-| 🔗 **Relationship Tracing** | Follow Order → Delivery → Invoice → Payment chains |
-
----
-
-## 🏗️ System Architecture
-
-```
-Frontend (Vanilla JS + Cytoscape.js)
-   ↓
-Backend API (FastAPI)
-   ↓
-Guardrail Layer  →  reject off-topic queries
-   ↓
-LLM Layer (Groq Llama 3 70B)  →  NL to Cypher
-   ↓
-Neo4j AuraDB  →  execute Cypher query
-   ↓
-Response Formatter (LLM)  →  human-readable answer
-   ↓
-Frontend (Chat response + graph highlight)
-```
-
-### Graph Data Model
-
-**Nodes:** `Order` · `Delivery` · `Invoice` · `Payment` · `Customer` · `Product` · `Address`
-
-**Edges:**
-- `Order → Delivery`
-- `Delivery → Invoice`
-- `Invoice → Payment`
-- `Order → Customer`
-- `Order Item → Product`
-
----
-
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | Vanilla JS · Cytoscape.js · Tailwind CSS |
 | Backend | FastAPI (Python) |
 | Database | Neo4j AuraDB |
-| Query Language | Cypher |
 | LLM | Groq API — Llama 3 70B |
-| Data Ingestion | Python · Pandas |
 | Deployment | Vercel (Frontend) · Render (Backend) |
 
----
-
-## 📁 Project Structure
+## Architecture
 
 ```
-graphiq/
-├── src/
-│   ├── frontend/
-│   │   ├── index.html
-│   │   ├── style.css
-│   │   └── js/
-│   │       ├── graph.js        # Cytoscape graph rendering
-│   │       ├── chat.js         # Chat interface logic
-│   │       ├── api.js          # API calls
-│   │       └── utils.js
-│   ├── backend/
-│   │   ├── main.py             # FastAPI entry point
-│   │   ├── config.py           # Env vars
-│   │   ├── routers/            # /api/graph, /api/chat, /api/health
-│   │   ├── services/           # Neo4j, LLM, graph formatting, guardrails
-│   │   ├── prompts/            # System & Cypher prompt templates
-│   │   └── models/schemas.py   # Pydantic models
-│   └── ingestion/
-│       ├── ingest.py           # CSV → Neo4j loader
-│       ├── preprocess.py       # Data cleaning
-│       └── graph_builder.py    # Node/edge definition
-├── data/
-│   ├── raw/                    # Original CSVs
-│   └── processed/              # Cleaned CSVs
-├── sessions/                   # AI session logs
-├── docs/architecture.md
-├── .env.example
-├── requirements.txt
-└── README.md
+Frontend (Vanilla JS + Cytoscape.js)
+   ↓
+Backend API (FastAPI)
+   ↓
+Guardrail Layer
+   ↓
+LLM Layer (Groq Llama 3 70B) → NL to Cypher
+   ↓
+Neo4j AuraDB → Execute Cypher
+   ↓
+Response Formatter (LLM) → Human-readable answer
+   ↓
+Frontend (Chat response + graph highlight)
 ```
 
----
+## Setup Instructions
 
-## ⚙️ Setup & Installation
-
-### 1. Clone the repository
 ```bash
+# 1. Clone the repo
 git clone https://github.com/<your-username>/GraphIQ.git
 cd GraphIQ
-```
 
-### 2. Create a virtual environment & install dependencies
-```bash
+# 2. Create virtual environment
 python -m venv venv
-source venv/bin/activate   # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
-```
 
-### 3. Configure environment variables
-```bash
+# 4. Configure environment
 cp .env.example .env
-```
-Fill in `.env` with your credentials:
-```
-NEO4J_URI=
-NEO4J_USERNAME=
-NEO4J_PASSWORD=
-GROQ_API_KEY=
-```
+# Fill in NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, GROQ_API_KEY
 
-### 4. Ingest data into Neo4j
-```bash
+# 5. Ingest data
 python src/ingestion/ingest.py
-```
 
-### 5. Start the backend
-```bash
+# 6. Start backend
 uvicorn src.backend.main:app --reload
+
+# 7. Open frontend
+# Open src/frontend/index.html in your browser
 ```
 
-### 6. Open the frontend
-Open `src/frontend/index.html` in your browser.
+## API Endpoints
 
----
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/health` | Health check |
+| GET | `/api/graph` | Fetch all nodes and edges |
+| POST | `/api/chat` | Submit a natural language query |
 
-## 🛡️ Guardrails
+## LLM Strategy
 
-The system enforces strict query boundaries:
+The LLM (Groq Llama 3 70B) receives:
+1. A system prompt with the full graph schema
+2. The user's natural language query
 
-- ✅ Accepts only dataset-related questions
-- ❌ Rejects general knowledge, creative writing, and irrelevant prompts
-- ❌ Blocks any LLM-generated Cypher containing write/delete operations
+It outputs a **Cypher query** which is validated and executed against Neo4j.
+The raw results are then sent back to the LLM to generate a human-readable response.
 
-> *"This system is designed to answer questions related to the provided dataset only."*
+## Guardrails
 
----
-
-## 💬 Example Queries
-
-```
-"Which orders are incomplete?"
-"Trace the flow of invoice INV-1042"
-"Which products appear in the most orders?"
-"Show all payments linked to customer C-204"
-```
-
----
-
-## 📦 Dependencies
-
-```
-fastapi
-uvicorn
-neo4j
-groq
-pandas
-python-dotenv
-pydantic
-```
-
----
-
-## 📄 License
-
-MIT License
-
----
-
-*Built as part of a technical assignment demonstrating Graph + LLM system design.*
+- Only dataset-related queries are accepted
+- LLM-generated Cypher is validated — only `MATCH`/`RETURN` allowed
+- Write operations (`CREATE`, `DELETE`, `SET`, `MERGE`) are blocked
+- Off-topic queries return: *"This system is designed to answer questions related to the provided dataset only."*

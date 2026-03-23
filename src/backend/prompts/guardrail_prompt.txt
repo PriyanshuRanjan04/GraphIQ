@@ -1,0 +1,6 @@
+# GraphIQ Guardrail Prompt
+# Instructs the LLM to classify whether a query is dataset-related or off-topic.
+# Returns: "ALLOWED" or "BLOCKED" with a brief reason.
+# IMPLEMENTATION: Fill in with examples in Phase 4.
+
+[PLACEHOLDER — implement in Phase 4: LLM + Guardrails]
