@@ -30,7 +30,8 @@ def read_ndjson(folder_name: str) -> list[dict]:
         logger.warning(f"Folder not found: {folder}")
         return records
 
-    for file in folder.glob("*.json"):
+    json_files = list(folder.glob("*.jsonl")) + list(folder.glob("*.json"))
+    for file in json_files:
         logger.info(f"  Reading {file.name} ...")
         with open(file, "r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
@@ -123,6 +124,7 @@ def preprocess_customers() -> list[dict]:
     cleaned = [c for c in cleaned if c["id"]]
     cleaned = deduplicate(cleaned, "id")
     save_processed(cleaned, "customers.json")
+    print(f"Customers loaded: {len(cleaned)}")
     return cleaned
 
 
@@ -150,6 +152,7 @@ def preprocess_sales_orders() -> list[dict]:
     cleaned = [c for c in cleaned if c["id"]]
     cleaned = deduplicate(cleaned, "id")
     save_processed(cleaned, "sales_orders.json")
+    print(f"Sales orders loaded: {len(cleaned)}")
     return cleaned
 
 
@@ -174,6 +177,7 @@ def preprocess_deliveries() -> list[dict]:
     cleaned = [c for c in cleaned if c["id"]]
     cleaned = deduplicate(cleaned, "id")
     save_processed(cleaned, "deliveries.json")
+    print(f"Deliveries loaded: {len(cleaned)}")
     return cleaned
 
 
@@ -203,6 +207,7 @@ def preprocess_billing_documents() -> list[dict]:
     cleaned = [c for c in cleaned if c["id"]]
     cleaned = deduplicate(cleaned, "id")
     save_processed(cleaned, "billing_documents.json")
+    print(f"Billing documents loaded: {len(cleaned)}")
     return cleaned
 
 
@@ -240,6 +245,7 @@ def preprocess_payments() -> list[dict]:
             deduped.append(c)
     logger.info(f"  Deduplicated: {len(cleaned)} → {len(deduped)} records (composite key)")
     save_processed(deduped, "payments.json")
+    print(f"Payments loaded: {len(deduped)}")
     return deduped
 
 
@@ -267,6 +273,7 @@ def preprocess_journal_entries() -> list[dict]:
     cleaned = [c for c in cleaned if c["id"]]
     cleaned = deduplicate(cleaned, "id")
     save_processed(cleaned, "journal_entries.json")
+    print(f"Journal entries loaded: {len(cleaned)}")
     return cleaned
 
 
@@ -291,6 +298,7 @@ def preprocess_products() -> list[dict]:
     cleaned = [c for c in cleaned if c["id"]]
     cleaned = deduplicate(cleaned, "id")
     save_processed(cleaned, "products.json")
+    print(f"Products loaded: {len(cleaned)}")
     return cleaned
 
 
@@ -313,6 +321,7 @@ def preprocess_plants() -> list[dict]:
     cleaned = [c for c in cleaned if c["id"]]
     cleaned = deduplicate(cleaned, "id")
     save_processed(cleaned, "plants.json")
+    print(f"Plants loaded: {len(cleaned)}")
     return cleaned
 
 
@@ -335,6 +344,7 @@ def preprocess_sales_order_items() -> list[dict]:
         })
     cleaned = [c for c in cleaned if c["salesOrder"]]
     save_processed(cleaned, "sales_order_items.json")
+    print(f"Sales order items loaded: {len(cleaned)}")
     return cleaned
 
 
@@ -355,6 +365,7 @@ def preprocess_billing_document_items() -> list[dict]:
         })
     cleaned = [c for c in cleaned if c["billingDocument"]]
     save_processed(cleaned, "billing_document_items.json")
+    print(f"Billing document items loaded: {len(cleaned)}")
     return cleaned
 
 
