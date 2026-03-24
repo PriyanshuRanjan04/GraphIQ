@@ -280,17 +280,18 @@ def create_customer_placed_salesorder(driver):
 def create_salesorder_has_delivery(driver):
     """
     (:SalesOrder)-[:HAS_DELIVERY]->(:Delivery)
-    Resolved via sales_order_items.deliveryDocument
+    Resolved via outbound_delivery_items: referenceSdDocument = salesOrder, deliveryDocument = delivery
     """
     logger.info("Creating (:SalesOrder)-[:HAS_DELIVERY]->(:Delivery) relationships...")
-    items = load_json("sales_order_items.json")
+    items = load_json("outbound_delivery_items.json")
     # Build unique (salesOrder, deliveryDocument) pairs
     pairs = list({
-        (r["salesOrder"], r["deliveryDocument"])
+        (r["referenceSdDocument"], r["deliveryDocument"])
         for r in items
-        if r.get("salesOrder") and r.get("deliveryDocument")
+        if r.get("referenceSdDocument") and r.get("deliveryDocument")
     })
     records = [{"salesOrder": p[0], "deliveryDocument": p[1]} for p in pairs]
+    logger.info(f"  Found {len(records)} unique SalesOrder-Delivery pairs")
 
     cypher = """
     UNWIND $batch AS row
@@ -306,16 +307,33 @@ def create_salesorder_has_delivery(driver):
 def create_salesorder_has_billing(driver):
     """
     (:SalesOrder)-[:HAS_BILLING]->(:BillingDocument)
-    Resolved via billing_document_items.salesDocument
+    Chain: outbound_delivery_items maps delivery→salesOrder,
+           billing_document_items maps delivery→billingDocument.
+    Join on deliveryDocument to get salesOrder→billingDocument pairs.
     """
     logger.info("Creating (:SalesOrder)-[:HAS_BILLING]->(:BillingDocument) relationships...")
-    items = load_json("billing_document_items.json")
-    pairs = list({
-        (r["salesDocument"], r["billingDocument"])
-        for r in items
-        if r.get("salesDocument") and r.get("billingDocument")
-    })
+    delivery_items = load_json("outbound_delivery_items.json")
+    billing_items  = load_json("billing_document_items.json")
+
+    # Build delivery → salesOrder mapping from outbound_delivery_items
+    delivery_to_salesorder = {}
+    for r in delivery_items:
+        dd = r.get("deliveryDocument")
+        so = r.get("referenceSdDocument")
+        if dd and so:
+            delivery_to_salesorder[dd] = so
+
+    # Build salesOrder → billingDocument pairs via delivery chain
+    pairs = set()
+    for r in billing_items:
+        ref_dd = r.get("referenceSdDocument")  # this is a delivery document number
+        bd = r.get("billingDocument")
+        if ref_dd and bd and ref_dd in delivery_to_salesorder:
+            so = delivery_to_salesorder[ref_dd]
+            pairs.add((so, bd))
+
     records = [{"salesOrder": p[0], "billingDocument": p[1]} for p in pairs]
+    logger.info(f"  Found {len(records)} unique SalesOrder-BillingDocument pairs")
 
     cypher = """
     UNWIND $batch AS row

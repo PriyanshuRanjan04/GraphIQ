@@ -327,8 +327,7 @@ def preprocess_plants() -> list[dict]:
 
 def preprocess_sales_order_items() -> list[dict]:
     """
-    Reads sales_order_items/ → cleans → used to build SalesOrder-[:CONTAINS]->Product
-    and SalesOrder-[:HAS_DELIVERY]->Delivery relationships.
+    Reads sales_order_items/ → cleans → used to build SalesOrder-[:CONTAINS]->Product.
     """
     logger.info("=== Preprocessing SalesOrderItems (sales_order_items) ===")
     raw = read_ndjson("sales_order_items")
@@ -340,7 +339,6 @@ def preprocess_sales_order_items() -> list[dict]:
             "product":          safe_str(r.get("material") or r.get("product")),
             "requestedQty":     safe_float(r.get("requestedQuantity")),
             "netAmount":        safe_float(r.get("netAmount")),
-            "deliveryDocument": safe_str(r.get("deliveryDocument")),
         })
     cleaned = [c for c in cleaned if c["salesOrder"]]
     save_processed(cleaned, "sales_order_items.json")
@@ -351,6 +349,7 @@ def preprocess_sales_order_items() -> list[dict]:
 def preprocess_billing_document_items() -> list[dict]:
     """
     Reads billing_document_items/ → cleans → used to build SalesOrder-[:HAS_BILLING]->BillingDocument.
+    The raw field 'referenceSdDocument' is the delivery document number that links to outbound_delivery_items.
     """
     logger.info("=== Preprocessing BillingDocumentItems (billing_document_items) ===")
     raw = read_ndjson("billing_document_items")
@@ -359,13 +358,35 @@ def preprocess_billing_document_items() -> list[dict]:
         cleaned.append({
             "billingDocument":     safe_str(r.get("billingDocument")),
             "billingDocumentItem": safe_str(r.get("billingDocumentItem")),
-            "salesDocument":       safe_str(r.get("salesDocument") or r.get("salesOrder")),
+            "referenceSdDocument": safe_str(r.get("referenceSdDocument")),
             "product":             safe_str(r.get("material") or r.get("product")),
             "netAmount":           safe_float(r.get("netAmount")),
         })
     cleaned = [c for c in cleaned if c["billingDocument"]]
     save_processed(cleaned, "billing_document_items.json")
     print(f"Billing document items loaded: {len(cleaned)}")
+    return cleaned
+
+
+def preprocess_outbound_delivery_items() -> list[dict]:
+    """
+    Reads outbound_delivery_items/ → cleans → used to build SalesOrder-[:HAS_DELIVERY]->Delivery
+    and to resolve the SalesOrder-[:HAS_BILLING]->BillingDocument chain.
+    Raw field 'referenceSdDocument' is the sales order number.
+    """
+    logger.info("=== Preprocessing OutboundDeliveryItems (outbound_delivery_items) ===")
+    raw = read_ndjson("outbound_delivery_items")
+    cleaned = []
+    for r in raw:
+        cleaned.append({
+            "deliveryDocument":     safe_str(r.get("deliveryDocument")),
+            "deliveryDocumentItem": safe_str(r.get("deliveryDocumentItem")),
+            "referenceSdDocument":  safe_str(r.get("referenceSdDocument")),
+            "plant":                safe_str(r.get("plant")),
+        })
+    cleaned = [c for c in cleaned if c["deliveryDocument"]]
+    save_processed(cleaned, "outbound_delivery_items.json")
+    print(f"Outbound delivery items loaded: {len(cleaned)}")
     return cleaned
 
 
@@ -392,6 +413,7 @@ def preprocess_all_folders():
     preprocess_plants()
     preprocess_sales_order_items()
     preprocess_billing_document_items()
+    preprocess_outbound_delivery_items()
 
     logger.info("=" * 60)
     logger.info("Preprocessing complete. All files saved to data/processed/")
