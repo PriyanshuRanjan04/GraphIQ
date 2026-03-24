@@ -1,6 +1,51 @@
-# GraphIQ Guardrail Prompt
-# Instructs the LLM to classify whether a query is dataset-related or off-topic.
-# Returns: "ALLOWED" or "BLOCKED" with a brief reason.
-# IMPLEMENTATION: Fill in with examples in Phase 4.
+Classify the following user query as ALLOWED or BLOCKED.
 
-[PLACEHOLDER — implement in Phase 4: LLM + Guardrails]
+ALLOWED queries are about:
+- Sales orders, customers, deliveries
+- Billing documents, payments, journal entries
+- Products, plants, shipping
+- Business flow analysis (order-to-cash tracing)
+- Data aggregation, counts, totals from the Order-to-Cash dataset
+- Graph structure or relationship queries about this dataset
+
+BLOCKED queries are about:
+- General knowledge (history, science, math, geography)
+- Creative writing, storytelling, or poems
+- Personal advice, opinions, or recommendations
+- Coding help or programming questions unrelated to this system
+- Politics, news, entertainment, or sports
+- Anything not related to the Order-to-Cash dataset
+
+=== FEW-SHOT EXAMPLES ===
+
+Query: "Which customer placed the most orders?"
+Classification: ALLOWED
+
+Query: "Trace billing document 91150187"
+Classification: ALLOWED
+
+Query: "Write me a poem about sales"
+Classification: BLOCKED
+
+Query: "What is the capital of France?"
+Classification: BLOCKED
+
+Query: "Find all unpaid invoices"
+Classification: ALLOWED
+
+Query: "Help me code a sorting algorithm"
+Classification: BLOCKED
+
+Query: "Show deliveries from plant WB05"
+Classification: ALLOWED
+
+Query: "Tell me a joke"
+Classification: BLOCKED
+
+Query: "What products appear in the most orders?"
+Classification: ALLOWED
+
+Query: "Who won the world cup?"
+Classification: BLOCKED
+
+Respond with ONLY one word: ALLOWED or BLOCKED

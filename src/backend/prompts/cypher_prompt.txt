@@ -1,7 +1,88 @@
-# GraphIQ Cypher Prompt
-# Instructs the LLM to translate a natural language query into a valid Cypher query.
-# Receives: user query + graph schema context
-# Returns: a single, executable Cypher MATCH...RETURN statement
-# IMPLEMENTATION: Fill in with schema and few-shot examples in Phase 4.
+Generate a valid Neo4j Cypher query for the given user question. Return ONLY the Cypher query inside a ```cypher code block. No explanation needed.
 
-[PLACEHOLDER — implement in Phase 4: LLM + Guardrails]
+=== RULES ===
+
+1. Only use MATCH, OPTIONAL MATCH, WITH, WHERE, RETURN, ORDER BY, LIMIT, COUNT, SUM, AVG, COLLECT, and DISTINCT.
+2. NEVER use CREATE, DELETE, DETACH, SET, MERGE, DROP, REMOVE, or CALL — these are strictly forbidden.
+3. Always add LIMIT 50 unless the user explicitly asks for a different number.
+4. Use the exact property names from the schema (case-sensitive).
+5. Return meaningful property aliases (e.g., c.fullName AS customer, NOT c.fullName AS `c.fullName`).
+6. String matching should be case-insensitive where appropriate (use toLower()).
+7. When matching IDs, always treat them as strings (e.g., WHERE s.id = '740506').
+
+=== SCHEMA REFERENCE ===
+
+Nodes:
+- Customer: id, fullName, category, grouping, language, isBlocked, isArchived, creationDate
+- SalesOrder: id, type, salesOrg, soldToParty, totalAmount, currency, deliveryStatus, billingStatus, creationDate, requestedDeliveryDate
+- Delivery: id, shippingPoint, goodsMovementStatus, pickingStatus, actualGoodsMovementDate, creationDate, deliveryBlockReason
+- BillingDocument: id, type, soldToParty, totalAmount, currency, isCancelled, cancelledBillingDocument, accountingDocument, companyCode, fiscalYear, creationDate, billingDocumentDate
+- Payment: id, accountingDocument, itemId, companyCode, fiscalYear, amount, currency, customer, clearingDate, clearingDocument, postingDate, glAccount
+- JournalEntry: id, companyCode, fiscalYear, glAccount, profitCenter, costCenter, amount, currency, postingDate, documentDate
+- Product: id, productType, baseUnit, productGroup, grossWeight, netWeight, weightUnit
+- Plant: id, name, companyCode, country, region
+
+Relationships:
+- (:Customer)-[:PLACED]->(:SalesOrder)
+- (:SalesOrder)-[:HAS_DELIVERY]->(:Delivery)
+- (:SalesOrder)-[:HAS_BILLING]->(:BillingDocument)
+- (:SalesOrder)-[:CONTAINS]->(:Product)
+- (:BillingDocument)-[:POSTED_TO]->(:JournalEntry)
+- (:BillingDocument)-[:CANCELLED_BY]->(:BillingDocument)
+- (:Payment)-[:CLEARS]->(:BillingDocument)
+- (:Payment)-[:PAID_BY]->(:Customer)
+- (:Delivery)-[:SHIPS_FROM]->(:Plant)
+
+=== FEW-SHOT EXAMPLES ===
+
+Question: Which customers have placed the most orders?
+```cypher
+MATCH (c:Customer)-[:PLACED]->(s:SalesOrder)
+RETURN c.fullName AS customer, COUNT(s) AS orderCount
+ORDER BY orderCount DESC
+LIMIT 10
+```
+
+Question: Trace the full flow of billing document 91150187
+```cypher
+MATCH (c:Customer)-[:PLACED]->(s:SalesOrder)-[:HAS_BILLING]->(b:BillingDocument)
+OPTIONAL MATCH (b)-[:POSTED_TO]->(j:JournalEntry)
+WHERE b.id = '91150187'
+RETURN c.fullName AS customer, s.id AS salesOrder, b.id AS billingDocument, b.totalAmount AS amount, j.id AS journalEntry
+```
+
+Question: Find sales orders with no billing documents
+```cypher
+MATCH (s:SalesOrder)
+WHERE NOT (s)-[:HAS_BILLING]->()
+RETURN s.id AS salesOrder, s.totalAmount AS amount, s.deliveryStatus AS deliveryStatus
+LIMIT 50
+```
+
+Question: Which products appear in the most sales orders?
+```cypher
+MATCH (p:Product)<-[:CONTAINS]-(s:SalesOrder)
+RETURN p.id AS product, COUNT(s) AS orderCount
+ORDER BY orderCount DESC
+LIMIT 10
+```
+
+Question: Show all deliveries shipped from a specific plant
+```cypher
+MATCH (d:Delivery)-[:SHIPS_FROM]->(pl:Plant)
+WHERE pl.name IS NOT NULL
+RETURN d.id AS delivery, pl.name AS plant, d.goodsMovementStatus AS status, d.actualGoodsMovementDate AS shippedDate
+ORDER BY d.actualGoodsMovementDate DESC
+LIMIT 50
+```
+
+Question: What is the total billing amount per customer?
+```cypher
+MATCH (c:Customer)-[:PLACED]->(s:SalesOrder)-[:HAS_BILLING]->(b:BillingDocument)
+WHERE b.isCancelled = false
+RETURN c.fullName AS customer, SUM(b.totalAmount) AS totalBilled, b.currency AS currency
+ORDER BY totalBilled DESC
+LIMIT 50
+```
+
+Now generate the Cypher query for the following question:
