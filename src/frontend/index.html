@@ -79,14 +79,21 @@
     <!-- ──── LEFT: GRAPH PANEL ──────────────────────────────────── -->
     <div id="graph-panel">
 
-      <!-- Top controls -->
+      <!-- Top controls: icon-only, tooltip via title -->
       <div id="graph-controls">
-        <button class="ctrl-btn" id="btn-fit" title="Fit all">⊡</button>
-        <button class="ctrl-btn" id="btn-reset" title="Reset graph">↺</button>
+        <button class="ctrl-btn" id="btn-fit" title="Fit Graph to Screen">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="ctrl-btn" id="btn-reset" title="Reset Graph View">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 7a5 5 0 1 0 1-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M2 2v3h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <div class="ctrl-divider"></div>
-        <span id="nodes-count-badge" class="count-label">—</span>
-        <span class="count-sep">·</span>
-        <span id="edges-count-badge" class="count-label">—</span>
+        <span class="ctrl-stats" id="ctrl-stats"></span>
       </div>
 
       <!-- COLLAPSIBLE LEGEND (goal 2) -->
@@ -163,19 +170,53 @@
         </div>
       </div>
 
-      <!-- Bottom Navigation Bar -->
+      <!-- Bottom Navigation Bar: icon-only, tooltip via title -->
       <div class="graph-bottom-nav">
-        <button class="nav-btn" id="btn-nav-prev" title="Pan left">←</button>
-        <button class="nav-btn" id="btn-nav-next" title="Pan right">→</button>
-        <div class="nav-divider"></div>
-        <button class="nav-btn" id="btn-zoom-out" title="Zoom out">−</button>
-        <span class="zoom-level" id="zoom-level">100%</span>
-        <button class="nav-btn" id="btn-zoom-in" title="Zoom in">+</button>
-        <div class="nav-divider"></div>
-        <button class="nav-btn" id="btn-download" title="Export PNG">⬇</button>
-        <button class="nav-btn" id="btn-fullscreen" title="Fullscreen">⛶</button>
+        <button class="nav-btn" id="btn-zoom-out" title="Zoom Out">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="nav-btn zoom-pct" id="btn-zoom-reset" title="Click to Reset Zoom to 100%">
+          <span id="zoom-level">100%</span>
+        </button>
+        <button class="nav-btn" id="btn-zoom-in" title="Zoom In">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <line x1="6" y1="2" x2="6" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="nav-sep"></div>
+        <button class="nav-btn" id="btn-fit-screen" title="Fit to Screen">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="nav-btn" id="btn-center" title="Center Graph">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="6" cy="6" r="2" fill="currentColor"/>
+            <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+        </button>
+        <div class="nav-sep"></div>
+        <button class="nav-btn" id="btn-download" title="Download Graph as Image">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M6 1v7M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M1 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="nav-btn" id="btn-fullscreen" title="Toggle Fullscreen">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
 
+    </div>
+
+    <!-- ── DRAGGABLE DIVIDER (Change 2) ──────────────────────── -->
+    <div class="panel-divider" id="panel-divider">
+      <div class="divider-handle"></div>
     </div>
 
     <!-- ──── RIGHT: CHAT PANEL ──────────────────────────────────── -->

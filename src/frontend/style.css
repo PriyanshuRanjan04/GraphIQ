@@ -167,19 +167,23 @@ button { font-family: var(--font); cursor: pointer; }
    GRAPH CONTROLS (top-left pill)
    ══════════════════════════════════════════════════════════════ */
 #graph-controls {
-  position: absolute; top: 14px; left: 14px; z-index: 20;
+  position: absolute; top: 12px; left: 12px; z-index: 20;
   display: flex; align-items: center; gap: 2px;
-  background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
-  border: 1px solid var(--border-md); border-radius: 20px; padding: 4px 8px;
+  background: rgba(22,25,41,0.92); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 4px 8px;
 }
 .ctrl-btn {
   width: 28px; height: 28px; background: none; border: none;
-  color: var(--text-secondary); font-size: 14px;
-  border-radius: var(--radius-sm); display: flex;
+  color: rgba(255,255,255,0.5); font-size: 14px;
+  border-radius: 5px; display: flex;
   align-items: center; justify-content: center; transition: all 0.15s;
 }
-.ctrl-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.ctrl-divider { width: 1px; height: 14px; background: var(--border-md); margin: 0 4px; }
+.ctrl-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.ctrl-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.08); margin: 0 4px; }
+.ctrl-stats {
+  font-size: 11px; color: rgba(255,255,255,0.30); padding-left: 2px; white-space: nowrap;
+}
+/* keep legacy count badges working if present */
 .count-label  { font-size: var(--text-xs); color: var(--text-muted); padding: 0 3px; }
 .count-sep    { font-size: var(--text-xs); color: var(--text-muted); }
 
@@ -290,13 +294,15 @@ button { font-family: var(--font); cursor: pointer; }
 .tt-key    { color: rgba(255,255,255,0.35); }
 
 /* ══════════════════════════════════════════════════════════════
-   NODE DETAIL INSPECTOR PANEL
+   NODE DETAIL INSPECTOR PANEL (Change 5: fixed overlap)
    ══════════════════════════════════════════════════════════════ */
 #node-detail-panel {
-  position: absolute; bottom: 60px; left: 20px; z-index: 25;
-  width: 268px; max-height: 340px;
+  position: absolute; bottom: 60px; left: 16px; z-index: 100;
+  width: 268px; max-height: calc(100% - 130px);
   background: var(--bg-card); border: 1px solid var(--border-md);
-  border-radius: 10px; overflow: hidden;
+  border-radius: 10px;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   animation: slideUp 0.2s ease;
   display: flex; flex-direction: column;
@@ -377,22 +383,48 @@ button { font-family: var(--font); cursor: pointer; }
 }
 
 /* ══════════════════════════════════════════════════════════════
-   BOTTOM NAV BAR
+   DRAGGABLE PANEL DIVIDER (Change 2)
+   ══════════════════════════════════════════════════════════════ */
+.panel-divider {
+  width: 4px; background: rgba(255,255,255,0.04);
+  cursor: col-resize; position: relative; flex-shrink: 0;
+  transition: background 0.2s ease;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 30;
+}
+.panel-divider:hover { background: rgba(74,144,217,0.30); }
+.panel-divider.dragging { background: rgba(74,144,217,0.50); }
+.divider-handle {
+  width: 2px; height: 32px;
+  background: rgba(255,255,255,0.15); border-radius: 2px;
+}
+.panel-divider:hover .divider-handle,
+.panel-divider.dragging .divider-handle { background: #4A90D9; }
+
+/* ══════════════════════════════════════════════════════════════
+   BOTTOM NAV BAR (Change 4)
    ══════════════════════════════════════════════════════════════ */
 .graph-bottom-nav {
   position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 2px;
-  background: var(--bg-card); border: 1px solid var(--border-md);
-  border-radius: var(--radius); padding: 4px 8px; z-index: 20;
+  display: flex; align-items: center; gap: 1px;
+  background: #161929; border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 8px; padding: 3px 6px; z-index: 50;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 .nav-btn {
   width: 28px; height: 28px; background: transparent; border: none;
-  color: rgba(255,255,255,0.6); font-size: 14px; cursor: pointer;
-  border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  color: rgba(255,255,255,0.45); cursor: pointer;
+  border-radius: 5px; display: flex;
+  align-items: center; justify-content: center; transition: all 0.15s ease;
 }
 .nav-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
-.zoom-level { font-size: var(--text-xs); color: rgba(255,255,255,0.4); padding: 0 6px; min-width: 38px; text-align: center; }
-.nav-divider { width: 1px; height: 14px; background: var(--border); margin: 0 3px; }
+.zoom-pct {
+  width: auto; min-width: 40px; padding: 0 6px;
+  font-size: 11px; color: rgba(255,255,255,0.35);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+}
+.zoom-pct:hover { color: #4A90D9; background: rgba(74,144,217,0.08); }
+.nav-sep { width: 1px; height: 14px; background: rgba(255,255,255,0.07); margin: 0 3px; flex-shrink: 0; }
 
 /* ══════════════════════════════════════════════════════════════
    CHAT PANEL

@@ -409,6 +409,9 @@ async function loadGraph() {
 
       const zoomEl = document.getElementById('zoom-level');
       if (zoomEl) zoomEl.textContent = Math.round(cy.zoom() * 100) + '%';
+
+      // Populate ctrl-stats
+      updateGraphStats(cy.nodes().length, cy.edges().length);
     });
 
     layout.run();
@@ -871,49 +874,117 @@ function highlightPath(rawResults) {
 }
 
 // ─── Graph Controls ───────────────────────────────────────────────────────────
+function updateZoomDisplay() {
+  const el = document.getElementById('zoom-level');
+  if (el) el.textContent = Math.round(cy.zoom() * 100) + '%';
+}
+
+function updateGraphStats(nodeCount, edgeCount) {
+  const el = document.getElementById('ctrl-stats');
+  if (el) el.textContent = `${nodeCount} nodes · ${edgeCount} edges`;
+}
+
+function initDividerDrag() {
+  const divider   = document.getElementById('panel-divider');
+  const graphPanel = document.getElementById('graph-panel');
+  const chatPanel  = document.getElementById('chat-panel');
+  const container  = document.getElementById('main-container');
+  if (!divider || !graphPanel || !chatPanel) return;
+
+  let isDragging = false, startX = 0, startGraphWidth = 0;
+
+  divider.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    startGraphWidth = graphPanel.offsetWidth;
+    divider.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const containerWidth = container.offsetWidth;
+    const delta = e.clientX - startX;
+    const newGraphWidth = startGraphWidth + delta;
+    const minGraph = containerWidth * 0.45;
+    const maxGraph = containerWidth * 0.82;
+    if (newGraphWidth < minGraph || newGraphWidth > maxGraph) return;
+    const graphPct = (newGraphWidth / containerWidth) * 100;
+    const chatPct  = 100 - graphPct - 0.3;
+    graphPanel.style.flex = `0 0 ${graphPct}%`;
+    chatPanel.style.flex  = `0 0 ${chatPct}%`;
+  });
+
+  const endDrag = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    divider.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    setTimeout(() => { if (cy) { cy.resize(); } }, 50);
+  };
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('mouseleave', endDrag);
+}
+
 function initGraphControls() {
+  // Wire cy zoom event → display update
+  if (cy) cy.on('zoom', updateZoomDisplay);
+
+  // ─ Top controls ─
   document.getElementById('btn-fit').addEventListener('click', () => {
-    cy.resize(); cy.animate({ fit: { padding: 60 }, duration: 380 });
+    cy.fit(undefined, 40); updateZoomDisplay();
   });
 
-  document.getElementById('btn-reset').addEventListener('click', async () => {
-    closeNodeDetail();
-    cy.elements().remove();
-    document.getElementById('cy').style.opacity = '0';
-    await loadGraph();
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    cy.elements().removeClass('highlighted dimmed focused faded neighbor-focus legend-match legend-dim hover-dim hover-edge bg-dim search-match');
+    cy.style().update();
+    cy.fit(undefined, 40);
+    updateZoomDisplay();
+    const panel = document.getElementById('node-detail-panel');
+    if (panel) panel.classList.add('hidden');
   });
 
-  document.getElementById('btn-zoom-in').addEventListener('click', () => {
-    cy.resize(); cy.animate({ zoom: cy.zoom() * 1.3 }, { duration: 200 });
-  });
+  // ─ Bottom nav ─
   document.getElementById('btn-zoom-out').addEventListener('click', () => {
-    cy.resize(); cy.animate({ zoom: cy.zoom() * 0.75 }, { duration: 200 });
+    cy.zoom({ level: cy.zoom() * 0.8, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+    updateZoomDisplay();
+  });
+  document.getElementById('btn-zoom-in').addEventListener('click', () => {
+    cy.zoom({ level: cy.zoom() * 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+    updateZoomDisplay();
+  });
+  document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+    cy.zoom(1); cy.center(); updateZoomDisplay();
+  });
+  document.getElementById('btn-fit-screen').addEventListener('click', () => {
+    cy.fit(undefined, 40); updateZoomDisplay();
+  });
+  document.getElementById('btn-center').addEventListener('click', () => {
+    cy.center(); updateZoomDisplay();
   });
 
-  document.getElementById('btn-nav-prev').addEventListener('click', () => { cy.panBy({ x: 140, y: 0 }); });
-  document.getElementById('btn-nav-next').addEventListener('click', () => { cy.panBy({ x: -140, y: 0 }); });
-
-  document.getElementById('btn-download').addEventListener('click', function() {
-    const png = cy.png({ scale: 2 });
-    const a   = document.createElement('a');
-    a.href = png; a.download = 'graphiq-export.png'; a.click();
+  document.getElementById('btn-download').addEventListener('click', () => {
+    const png = cy.png({ scale: 2, bg: '#0d0f1a' });
+    const a = document.createElement('a'); a.href = png; a.download = 'graphiq-export.png'; a.click();
   });
 
-  document.getElementById('btn-fullscreen').addEventListener('click', function() {
+  document.getElementById('btn-fullscreen').addEventListener('click', () => {
     const gp = document.getElementById('graph-panel');
-    if (!document.fullscreenElement) { gp.requestFullscreen && gp.requestFullscreen(); }
-    else { document.exitFullscreen && document.exitFullscreen(); }
+    if (!document.fullscreenElement) {
+      gp.requestFullscreen && gp.requestFullscreen().then(() => setTimeout(() => { cy.resize(); cy.fit(undefined, 40); }, 200));
+    } else {
+      document.exitFullscreen && document.exitFullscreen().then(() => setTimeout(() => { cy.resize(); cy.fit(undefined, 40); }, 200));
+    }
   });
-  document.addEventListener('fullscreenchange', () => {
-    setTimeout(() => { cy.resize(); cy.fit(null, 60); }, 150);
-  });
+  document.addEventListener('fullscreenchange', () => setTimeout(() => { cy.resize(); cy.fit(null, 60); }, 150));
 
-  document.getElementById('node-detail-close').addEventListener('click', () => {
-    resetAllHighlights(); closeNodeDetail();
-  });
+  // ─ Detail panel ─
+  document.getElementById('node-detail-close').addEventListener('click', () => { resetAllHighlights(); closeNodeDetail(); });
   document.getElementById('btn-expand-node').addEventListener('click', focusConnections);
 
-  // Minimize / Expand
+  // ─ Minimize / Expand ─
   document.getElementById('btn-minimize').addEventListener('click', function() {
     const gp   = document.getElementById('graph-panel');
     const cp   = document.getElementById('chat-panel');
@@ -929,7 +1000,7 @@ function initGraphControls() {
     }
   });
 
-  // Overlay toggle
+  // ─ Overlay toggle ─
   document.getElementById('btn-overlay').addEventListener('click', function() {
     overlayVisible = !overlayVisible;
     const span = this.querySelector('span');
@@ -937,7 +1008,7 @@ function initGraphControls() {
     if (span) span.textContent = overlayVisible ? 'Hide Overlay' : 'Show Overlay';
   });
 
-  // Focus Mode Toggle (new)
+  // ─ Focus Mode ─
   const focusModeBtn = document.getElementById('btn-focus-mode');
   if (focusModeBtn) focusModeBtn.addEventListener('click', toggleGlobalFocusMode);
 }
@@ -983,6 +1054,7 @@ function updateStatus(connected) {
 document.addEventListener('DOMContentLoaded', async () => {
   initCytoscape();
   initGraphControls();
+  initDividerDrag();
   initLegend();
   initSearch();
   await loadGraph();

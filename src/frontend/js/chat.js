@@ -228,6 +228,10 @@ const VERBOSE_PHRASES = [
   'The results clearly show that',
   'Based on the executed Cypher query',
   'from the Order-to-Cash dataset',
+  'based on the data available',
+  'according to the query results',
+  'the query results show',
+  'based on the results',
   'Based on the query results',
   'The query results indicate',
   'According to the query results',
@@ -235,14 +239,35 @@ const VERBOSE_PHRASES = [
 
 function cleanText(text) {
   if (!text) return '';
+  // Remove markdown bold / italic
   text = text.replace(/\*\*(.*?)\*\*/g, '$1');
-  text = text.replace(/^[*-] /gm, '• ');
-  text = text.replace(/\n{3,}/g, '\n\n');
+  text = text.replace(/\*(.*?)\*/g, '$1');
+  // Replace all + bullet variants with →
+  text = text.replace(/^\s*\+\s+/gm, '→ ');
+  text = text.replace(/^\s*\+/gm,    '→ ');
+  text = text.replace(/\n\s*\+\s+/g, '\n→ ');
+  // Replace raw * / - list items with •
+  text = text.replace(/^\* /gm, '• ');
+  text = text.replace(/^- /gm,  '• ');
+  // Strip markdown headings
+  text = text.replace(/^###\s+/gm, '');
+  text = text.replace(/^##\s+/gm,  '');
+  text = text.replace(/^#\s+/gm,   '');
+  // Remove verbose LLM boilerplate
   VERBOSE_PHRASES.forEach(phrase => {
     text = text.replace(new RegExp(phrase + '[^.]*\\.?', 'gi'), '');
   });
-  text = text.replace(/  +/g, ' ').replace(/\. \./g, '.').trim();
+  // Tidy up
+  text = text.replace(/\n{3,}/g, '\n\n');
+  text = text.replace(/\. \./g, '.');
+  text = text.replace(/\s+\./g, '.');
+  text = text.replace(/  +/g, ' ').trim();
   return text;
+}
+
+/** Style the → flow indicator as a blue span (used after linkifyIds so HTML is safe). */
+function styleArrows(html) {
+  return html.replace(/→/g, '<span style="color:#4A90D9;font-weight:500">→</span>');
 }
 
 /**
@@ -631,8 +656,8 @@ function appendBotResponse(data, query, elapsed) {
       Please ask about customers, orders, deliveries, billing documents, or payments.
     </div>`;
   } else {
-    // ③ Visual hierarchy — structure the answer
-    content += structureAnswer(data.answer || 'No answer returned.');
+    // ③ Visual hierarchy — structure the answer (styleArrows applied for → indicator)
+    content += styleArrows(structureAnswer(data.answer || 'No answer returned.'));
 
     // Result count badge
     if (data.raw_results && data.raw_results.length > 0) {
