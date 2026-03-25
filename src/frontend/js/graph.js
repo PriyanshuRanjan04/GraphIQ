@@ -932,21 +932,42 @@ function initGraphControls() {
   // Wire cy zoom event → display update
   if (cy) cy.on('zoom', updateZoomDisplay);
 
-  // ─ Top controls ─
-  document.getElementById('btn-fit').addEventListener('click', () => {
-    cy.fit(undefined, 40); updateZoomDisplay();
-  });
-
-  document.getElementById('btn-reset').addEventListener('click', () => {
-    cy.elements().removeClass('highlighted dimmed focused faded neighbor-focus legend-match legend-dim hover-dim hover-edge bg-dim search-match');
-    cy.style().update();
-    cy.fit(undefined, 40);
+  // ─ Single Reset View button (bottom nav — the ONLY reset control) ─
+  // Resets zoom + fit + clears all highlights + closes detail panel
+  const doResetView = () => {
+    cy.elements().removeClass(
+      'highlighted dimmed focused faded neighbor-focus legend-match legend-dim hover-dim hover-edge bg-dim search-match'
+    );
+    cy.nodes().removeStyle('opacity');
+    cy.edges().removeStyle('opacity');
+    applyPlantSoftDim();
+    cy.fit(undefined, 50);
     updateZoomDisplay();
     const panel = document.getElementById('node-detail-panel');
     if (panel) panel.classList.add('hidden');
+    selectedNodeId  = null;
+    focusModeActive = false;
+    globalFocusMode = false;
+    // Reset search
+    const si = document.getElementById('graph-search-input');
+    const sc = document.getElementById('graph-search-clear');
+    if (si) si.value = '';
+    if (sc) sc.style.display = 'none';
+    // Reset legend
+    document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active-filter'));
+    const legReset = document.getElementById('legend-reset-filter');
+    if (legReset) legReset.classList.remove('visible');
+    activeLegendFilter = null;
+  };
+
+  document.getElementById('btn-fit-screen').addEventListener('click', doResetView);
+
+  // ── Double-click on empty canvas → Reset View ──
+  cy.on('dblclick', function(evt) {
+    if (evt.target === cy) doResetView();
   });
 
-  // ─ Bottom nav ─
+  // ─ Bottom nav zoom ─
   document.getElementById('btn-zoom-out').addEventListener('click', () => {
     cy.zoom({ level: cy.zoom() * 0.8, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
     updateZoomDisplay();
@@ -957,12 +978,6 @@ function initGraphControls() {
   });
   document.getElementById('btn-zoom-reset').addEventListener('click', () => {
     cy.zoom(1); cy.center(); updateZoomDisplay();
-  });
-  document.getElementById('btn-fit-screen').addEventListener('click', () => {
-    cy.fit(undefined, 40); updateZoomDisplay();
-  });
-  document.getElementById('btn-center').addEventListener('click', () => {
-    cy.center(); updateZoomDisplay();
   });
 
   document.getElementById('btn-download').addEventListener('click', () => {

@@ -418,6 +418,8 @@ button { font-family: var(--font); cursor: pointer; }
   align-items: center; justify-content: center; transition: all 0.15s ease;
 }
 .nav-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+/* Single "Reset View" button — subtle accent so it's identifiable */
+.nav-btn-reset:hover { background: rgba(74,144,217,0.14) !important; color: #4A90D9 !important; }
 .zoom-pct {
   width: auto; min-width: 40px; padding: 0 6px;
   font-size: 11px; color: rgba(255,255,255,0.35);

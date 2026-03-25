@@ -79,20 +79,8 @@
     <!-- ──── LEFT: GRAPH PANEL ──────────────────────────────────── -->
     <div id="graph-panel">
 
-      <!-- Top controls: icon-only, tooltip via title -->
+      <!-- Graph controls: info-only display panel -->
       <div id="graph-controls">
-        <button class="ctrl-btn" id="btn-fit" title="Fit Graph to Screen">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <button class="ctrl-btn" id="btn-reset" title="Reset Graph View">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M2 7a5 5 0 1 0 1-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            <path d="M2 2v3h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <div class="ctrl-divider"></div>
         <span class="ctrl-stats" id="ctrl-stats"></span>
       </div>
 
@@ -187,15 +175,10 @@
           </svg>
         </button>
         <div class="nav-sep"></div>
-        <button class="nav-btn" id="btn-fit-screen" title="Fit to Screen">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <button class="nav-btn" id="btn-center" title="Center Graph">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <circle cx="6" cy="6" r="2" fill="currentColor"/>
-            <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/>
+        <button class="nav-btn nav-btn-reset" id="btn-fit-screen" title="Reset View — fit graph, clear highlights, center">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2.5 6.5a4 4 0 1 0 .8-2.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M2.5 2.5v2h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
         <div class="nav-sep"></div>
