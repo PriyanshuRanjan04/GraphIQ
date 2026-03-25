@@ -79,6 +79,146 @@ function linkifyIds(text) {
   return result;
 }
 
+// ─── 🗓 Markdown Table Renderer ─────────────────────────────────────────────────
+
+/**
+ * Returns true if a line is a markdown table separator row  (| --- | --- |)
+ */
+function isTableSeparator(line) {
+  return /^\|[-| :]+\|\s*$/.test(line.trim());
+}
+
+/**
+ * Returns true if a line looks like a table row (starts and ends with |)
+ */
+function isTableRow(line) {
+  const t = line.trim();
+  return t.startsWith('|') && t.endsWith('|');
+}
+
+/**
+ * Parse a single markdown table row into an array of cell strings.
+ */
+function parseTableRow(line) {
+  return line.trim()
+    .replace(/^\|/, '')   // remove leading |
+    .replace(/\|$/, '')   // remove trailing |
+    .split('|')
+    .map(cell => cell.trim());
+}
+
+/**
+ * Given lines that form a markdown table, return { headers, rows } or null on failure.
+ */
+function parseMarkdownTable(lines) {
+  try {
+    if (lines.length < 3) return null;
+    const headers = parseTableRow(lines[0]);
+    // lines[1] must be separator
+    if (!isTableSeparator(lines[1])) return null;
+    const rows = lines.slice(2)
+      .filter(l => isTableRow(l))
+      .map(parseTableRow)
+      .filter(cells => cells.length > 0);
+    if (headers.length === 0 || rows.length === 0) return null;
+    return { headers, rows };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build an HTML table string from { headers, rows }.
+ * IDs within cells are also linkified.
+ */
+function buildHtmlTable({ headers, rows }) {
+  const ths = headers
+    .map(h => `<th>${escapeHtml(h)}</th>`)
+    .join('');
+
+  const trs = rows.map((cells, rowIdx) => {
+    const tds = cells
+      .map(cell => `<td>${linkifyIds(cell)}</td>`)
+      .join('');
+    return `<tr class="${rowIdx % 2 === 0 ? 'even' : 'odd'}">${tds}</tr>`;
+  }).join('');
+
+  return `<div class="chat-table-container">
+    <table class="chat-table">
+      <thead><tr>${ths}</tr></thead>
+      <tbody>${trs}</tbody>
+    </table>
+  </div>`;
+}
+
+/**
+ * Scan raw answer text for markdown table blocks.
+ * Replaces each block with rendered HTML; preserves surrounding text.
+ * Returns an HTML string.
+ */
+function renderMarkdownTables(text) {
+  if (!text || !text.includes('|')) return null; // fast path — no tables
+
+  const lines   = text.split('\n');
+  const output  = [];  // segments: { type: 'text'|'table', content }
+  let tableLines = [];
+  let inTable    = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (isTableRow(line)) {
+      if (!inTable) { inTable = true; tableLines = []; }
+      tableLines.push(line);
+    } else {
+      if (inTable) {
+        // flush table
+        output.push({ type: 'table', lines: tableLines });
+        tableLines = [];
+        inTable    = false;
+      }
+      output.push({ type: 'text', content: line });
+    }
+  }
+  // trailing table
+  if (inTable && tableLines.length > 0) {
+    output.push({ type: 'table', lines: tableLines });
+  }
+
+  // Check if ANY tables were found
+  const hasTable = output.some(seg => seg.type === 'table');
+  if (!hasTable) return null;
+
+  // Build final HTML
+  let html = '';
+  let pendingText = [];
+
+  const flushText = () => {
+    const t = pendingText.join('\n').trim();
+    if (t) {
+      html += `<div class="answer-body" style="margin-bottom:6px">${linkifyIds(escapeHtml(t)).replace(/\n/g,'<br>')}</div>`;
+    }
+    pendingText = [];
+  };
+
+  for (const seg of output) {
+    if (seg.type === 'text') {
+      pendingText.push(seg.content);
+    } else {
+      flushText();
+      const parsed = parseMarkdownTable(seg.lines);
+      if (parsed) {
+        html += buildHtmlTable(parsed);
+      } else {
+        // fallback: show raw
+        html += `<div class="answer-body">${escapeHtml(seg.lines.join('\n'))}</div>`;
+      }
+    }
+  }
+  flushText();
+
+  return html || null;
+}
+
 // ─── ③ Answer visual hierarchy ───────────────────────────────────────────────
 // Strips LLM boilerplate and upgrades plain text to structured HTML
 const VERBOSE_PHRASES = [
@@ -116,6 +256,21 @@ function cleanText(text) {
 function structureAnswer(rawText) {
   const clean = cleanText(rawText);
   if (!clean) return '';
+
+  // ── Try markdown table rendering first ──
+  // If the response contains table blocks, handle the whole thing via renderMarkdownTables
+  // which preserves surrounding text and wraps tables in proper HTML.
+  const tableHtml = renderMarkdownTables(clean);
+  if (tableHtml) {
+    // Extract intro summary (first non-empty, non-table line) for the summary block
+    const firstLine = clean.split('\n').find(l => l.trim() && !isTableRow(l) && !isTableSeparator(l));
+    let result = '';
+    if (firstLine && firstLine.trim()) {
+      result += `<div class="answer-summary">${linkifyIds(firstLine.trim())}</div>`;
+    }
+    result += tableHtml;
+    return result;
+  }
 
   const lines = clean.split('\n').filter(l => l.trim() !== '');
   if (lines.length === 0) return '';
