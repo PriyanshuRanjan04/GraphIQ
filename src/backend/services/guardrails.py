@@ -31,7 +31,7 @@ def check_query_allowed(query: str) -> dict:
     """
     try:
         response = _client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": _GUARDRAIL_PROMPT},
                 {"role": "user", "content": f'Query: "{query}"\nClassification:'},

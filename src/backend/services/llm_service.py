@@ -32,7 +32,7 @@ def generate_cypher(user_query: str) -> str:
 
     try:
         response = _client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
@@ -86,7 +86,7 @@ def generate_answer(user_query: str, cypher: str, results: list) -> str:
 
     try:
         response = _client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},

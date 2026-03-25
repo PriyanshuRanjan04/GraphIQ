@@ -1,14 +1,152 @@
-<!-- GraphIQ - index.html -->
-<!-- Main UI entry point: graph visualization + chat interface -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GraphIQ</title>
+  <title>GraphIQ — Order-to-Cash Intelligence</title>
+  <meta name="description" content="GraphIQ: Explore and query your SAP Order-to-Cash process graph using natural language." />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Cytoscape.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+
+  <!-- Custom Styles -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Layout placeholder — implementation in Phase 5 -->
+
+  <!-- ════════════════════════════════════════ HEADER -->
+  <header id="app-header">
+    <div class="header-left">
+      <span class="logo-icon">⬡</span>
+      <span class="logo-text">Graph<span class="logo-accent">IQ</span></span>
+      <span class="logo-tagline">Order-to-Cash Intelligence</span>
+    </div>
+    <div class="header-right">
+      <div id="status-indicator" class="status-pill status-connecting">
+        <span class="status-dot"></span>
+        <span id="status-text">Connecting...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ════════════════════════════════════════ MAIN LAYOUT -->
+  <div id="main-container">
+
+    <!-- ──────────────────── LEFT: GRAPH PANEL -->
+    <div id="graph-panel">
+
+      <!-- Graph Controls -->
+      <div id="graph-controls">
+        <button class="ctrl-btn" id="btn-fit" title="Fit all nodes">⊡ Fit</button>
+        <button class="ctrl-btn" id="btn-reset" title="Reset graph">↺ Reset</button>
+        <button class="ctrl-btn icon-btn" id="btn-zoom-in" title="Zoom in">+</button>
+        <button class="ctrl-btn icon-btn" id="btn-zoom-out" title="Zoom out">−</button>
+        <div class="ctrl-separator"></div>
+        <span id="nodes-count-badge" class="count-badge">— nodes</span>
+        <span id="edges-count-badge" class="count-badge">— edges</span>
+      </div>
+
+      <!-- Node Color Legend -->
+      <div id="graph-legend">
+        <div class="legend-title">Node Types</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#4A90D9"></span>Customer</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#7ED321"></span>SalesOrder</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#F5A623"></span>Delivery</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#D0021B"></span>BillingDoc</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#9B59B6"></span>Payment</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#1ABC9C"></span>JournalEntry</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#E67E22"></span>Product</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#95A5A6"></span>Plant</div>
+      </div>
+
+      <!-- Loading Overlay -->
+      <div id="graph-loading">
+        <div class="graph-spinner"></div>
+        <p id="graph-loading-text">Loading graph data...</p>
+      </div>
+
+      <!-- Cytoscape Canvas -->
+      <div id="cy"></div>
+
+      <!-- Node Detail Panel -->
+      <div id="node-detail-panel" class="hidden">
+        <div id="node-detail-header">
+          <span id="node-detail-title"></span>
+          <button id="node-detail-close" title="Close">×</button>
+        </div>
+        <div id="node-detail-body"></div>
+        <button id="btn-expand-node" class="expand-btn">
+          <span>🔗 Expand Neighbors</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ──────────────────── RIGHT: CHAT PANEL -->
+    <div id="chat-panel">
+
+      <div id="chat-header">
+        <div>
+          <h2 class="chat-title">Chat with Graph</h2>
+          <p class="chat-subtitle">Order-to-Cash · SAP Dataset · 713 nodes</p>
+        </div>
+        <button id="btn-clear-chat" title="Clear chat">🗑</button>
+      </div>
+
+      <!-- Example Query Chips -->
+      <div id="example-chips">
+        <div class="chips-label">Try asking:</div>
+        <div class="chips-row">
+          <button class="chip" data-query="Which customer placed the most orders?">Which customer placed most orders?</button>
+          <button class="chip" data-query="Trace billing document 91150187">Trace billing document 91150187</button>
+          <button class="chip" data-query="Find all orders with no billing documents">Orders with no billing docs</button>
+        </div>
+      </div>
+
+      <!-- Chat Messages -->
+      <div id="chat-messages">
+        <div class="msg bot-msg">
+          <div class="msg-icon">🤖</div>
+          <div class="msg-bubble">
+            <p>Hi! I can help you analyze the <strong>Order-to-Cash</strong> process graph.</p>
+            <p style="margin-top:6px;color:var(--text-secondary);font-size:0.85em;">Ask me about customers, orders, deliveries, billing, payments or journal entries.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Query Metadata Bar -->
+      <div id="query-metadata" class="hidden">
+        <span id="meta-type" class="meta-tag"></span>
+        <span id="meta-nodes" class="meta-tag"></span>
+        <span id="meta-time" class="meta-tag"></span>
+      </div>
+
+      <!-- Chat Input Area -->
+      <div id="chat-input-area">
+        <input
+          type="text"
+          id="chat-input"
+          placeholder="Ask anything about the O2C process..."
+          autocomplete="off"
+        />
+        <button id="btn-send" title="Send">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scripts (order matters) -->
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/graph.js"></script>
+  <script src="js/chat.js"></script>
 </body>
 </html>
