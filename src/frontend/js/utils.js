@@ -1,8 +1,7 @@
 // GraphIQ - utils.js
-// Shared helper functions
+// Shared helper functions — phase 5 additions included
 
 // ─── Node color + icon maps ───────────────────────────────────────────────────
-
 const NODE_COLORS = {
   Customer:        '#4A90D9',
   SalesOrder:      '#7ED321',
@@ -25,87 +24,54 @@ const NODE_ICONS = {
   Plant:           '🏭',
 };
 
-/**
- * Get the hex color for a given node label.
- * @param {string} label
- * @returns {string} hex color
- */
+/** Get hex color for a node label. */
 function getNodeColor(label) {
   return NODE_COLORS[label] || '#6b7280';
 }
 
-/**
- * Get the emoji icon for a given node label.
- * @param {string} label
- * @returns {string} emoji
- */
+/** Get emoji icon for a node label. */
 function getNodeIcon(label) {
   return NODE_ICONS[label] || '◉';
 }
 
 // ─── Text formatting ──────────────────────────────────────────────────────────
 
-/**
- * Format an ISO date string into a human-readable date.
- * @param {string} dateStr
- * @returns {string}
- */
+/** Format ISO date string → human readable. */
 function formatDate(dateStr) {
   if (!dateStr) return '—';
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
+    if (isNaN(d.getTime())) return String(dateStr);
     return d.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
-  } catch {
-    return dateStr;
-  }
+  } catch { return String(dateStr); }
 }
 
-/**
- * Truncate text to a maximum length with ellipsis.
- * @param {string} text
- * @param {number} maxLen
- * @returns {string}
- */
+/** Truncate text with ellipsis. */
 function truncateText(text, maxLen = 30) {
   if (!text) return '';
   const s = String(text);
   return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
 }
 
-/**
- * Format a numeric amount as currency.
- * @param {number|string} amount
- * @param {string} currency - e.g. "INR", "USD"
- * @returns {string}
- */
+/** Format numeric amount as INR currency. */
 function formatCurrency(amount, currency = 'INR') {
   if (amount === null || amount === undefined || amount === '') return '—';
   const num = parseFloat(amount);
   if (isNaN(num)) return String(amount);
   try {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-    }).format(num);
-  } catch {
-    return `${num.toFixed(2)}`;
-  }
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency, minimumFractionDigits: 2 }).format(num);
+  } catch { return `${num.toFixed(2)}`; }
 }
 
 // ─── Property rendering ───────────────────────────────────────────────────────
-
-// Keys that contain date values
-const DATE_KEYS = ['createdAt', 'updatedAt', 'billingDate', 'deliveryDate', 'postingDate',
-                   'entryDate', 'paymentDate', 'orderDate', 'documentDate'];
-
-// Keys that contain currency amounts
-const CURRENCY_KEYS = ['netAmount', 'taxAmount', 'totalAmount', 'amount', 'amountInLocalCurrency'];
+const DATE_KEYS     = ['createdAt','updatedAt','billingDate','deliveryDate','postingDate',
+                       'entryDate','paymentDate','orderDate','documentDate','creationDate',
+                       'actualGoodsMovementDate','billingDocumentDate','clearingDate'];
+const CURRENCY_KEYS = ['netAmount','taxAmount','totalAmount','amount','amountInLocalCurrency'];
 
 /**
- * Render a node's properties as an HTML table.
- * @param {object} properties - flat key-value pairs
+ * Render a node's properties as detail-prop rows.
+ * @param {object} properties
  * @returns {string} HTML string
  */
 function formatProperties(properties) {
@@ -113,29 +79,64 @@ function formatProperties(properties) {
   const entries = Object.entries(properties).filter(([, v]) => v !== null && v !== undefined && v !== '');
   if (entries.length === 0) return '<p class="no-props">No properties</p>';
 
-  const rows = entries.map(([key, value]) => {
+  return entries.map(([key, value]) => {
     const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
     let displayVal;
-    if (DATE_KEYS.includes(key)) {
-      displayVal = formatDate(value);
-    } else if (CURRENCY_KEYS.includes(key)) {
-      displayVal = formatCurrency(value);
-    } else {
-      displayVal = truncateText(String(value), 60);
-    }
-    return `<div class="prop-row"><span class="prop-key">${label}</span><span class="prop-val">${displayVal}</span></div>`;
-  });
-
-  return rows.join('');
+    if (DATE_KEYS.includes(key))     displayVal = formatDate(value);
+    else if (CURRENCY_KEYS.includes(key)) displayVal = formatCurrency(value);
+    else displayVal = truncateText(String(value), 60);
+    return `<div class="detail-prop-row">
+      <span class="detail-prop-key">${label}</span>
+      <span class="detail-prop-value">${displayVal}</span>
+    </div>`;
+  }).join('');
 }
 
-// ─── Query type classifier ────────────────────────────────────────────────────
+// ─── Phase 5: New utility helpers ─────────────────────────────────────────────
 
 /**
- * Guess the type of a natural language query for the metadata bar.
- * @param {string} query
+ * Get the degree (number of connected edges) of a Cytoscape node safely.
+ * @param {object} node - Cytoscape node
+ * @returns {number}
+ */
+function getNodeDegree(node) {
+  try { return node.connectedEdges().length; } catch { return 0; }
+}
+
+/**
+ * Get the display label for a node type (same in our case, but allows remapping).
+ * @param {string} type - node label
  * @returns {string}
  */
+function getLegendLabel(type) {
+  const MAP = {
+    BillingDocument: 'Billing Doc',
+    JournalEntry:    'Journal',
+    SalesOrder:      'Sales Order',
+  };
+  return MAP[type] || type;
+}
+
+/**
+ * Reset all legend item active-filter classes.
+ * Used externally when resetting graph state.
+ */
+function resetLegendUI() {
+  document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active-filter'));
+  const resetBtn = document.getElementById('legend-reset-filter');
+  if (resetBtn) resetBtn.classList.remove('visible');
+}
+
+/**
+ * Format a connection count for the detail panel footer.
+ * @param {number} count
+ * @returns {string}
+ */
+function formatConnectionCount(count) {
+  return `Connections: ${count}`;
+}
+
+// ─── Query classifier ─────────────────────────────────────────────────────────
 function classifyQuery(query) {
   const q = query.toLowerCase();
   if (q.includes('trace') || q.includes('find') || q.includes('show') || q.includes('get')) return '🔍 Search';
@@ -145,39 +146,20 @@ function classifyQuery(query) {
 }
 
 // ─── Misc ─────────────────────────────────────────────────────────────────────
-
-/**
- * Debounce a function.
- * @param {Function} fn
- * @param {number} ms
- * @returns {Function}
- */
 function debounce(fn, ms) {
   let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
 }
 
-/**
- * Scroll element to bottom smoothly.
- * @param {HTMLElement} el
- */
 function scrollToBottom(el) {
   el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
 }
 
-/**
- * Escape HTML special characters to prevent XSS.
- * @param {string} str
- * @returns {string}
- */
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g,  '&amp;')
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;');
 }

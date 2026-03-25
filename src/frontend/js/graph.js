@@ -1,13 +1,19 @@
 // GraphIQ - graph.js
-// All 7 UI enterprise changes + all previous improvements
+// Phase 5: Polish & Interaction Fixes
+// - Collapsible legend (Goal 2)
+// - Legend click-to-filter by node type (Goal 3)
+// - Better COSE layout for Plant nodes (Goal 1)
+// - Robust reset (Goal 4)
+// - Clean edge visuals (Goal 5)
+// - Polished node detail (Goal 6)
+// - Chat highlight with zoom (Goal 7)
 
 // ─── State ────────────────────────────────────────────────────────────────────
-let cy = null;
-let selectedNodeId    = null;
-let overlayVisible    = true;   // Change 3
-let currentGraphData  = { nodes: [], edges: [] };
+let cy             = null;
+let selectedNodeId = null;
+let overlayVisible = true;
+let activeLegendFilter = null;   // Goal 3: currently active node-type filter
 
-// Change 5: priority properties per label
 const PRIORITY_PROPS = {
   Customer:        ['fullName','id','grouping','isBlocked','isArchived','category'],
   SalesOrder:      ['id','totalAmount','currency','deliveryStatus','billingStatus','creationDate'],
@@ -25,80 +31,141 @@ function initCytoscape() {
   cy = cytoscape({
     container: document.getElementById('cy'),
     style: [
+      // Base node: smaller, no border, quiet labels
       {
         selector: 'node',
         style: {
           'background-color':   'data(color)',
           'label':              'data(displayName)',
-          'color':              'rgba(255,255,255,0.70)',
-          'font-size':          '9px',
+          'color':              'rgba(255,255,255,0.65)',
+          'font-size':          '8px',
           'font-family':        'Inter, system-ui, sans-serif',
           'text-valign':        'bottom',
           'text-halign':        'center',
           'text-margin-y':      '3px',
           'text-outline-color': '#13151f',
           'text-outline-width':  1.5,
-          'text-max-width':     '60px',
+          'text-max-width':     '55px',
           'text-wrap':          'ellipsis',
-          'width':               22,
-          'height':              22,
+          'width':               20,
+          'height':              20,
           'border-width':        0,
+          'z-index':             1,
         }
       },
+      // Goal 1: Plant nodes — softer, smaller, less visually dominant
+      {
+        selector: 'node[label="Plant"]',
+        style: {
+          'width':    14,
+          'height':   14,
+          'opacity':  0.55,
+          'font-size':'7px',
+          'color':    'rgba(255,255,255,0.35)',
+        }
+      },
+      // Customer nodes — larger, brighter
       {
         selector: 'node[label="Customer"]',
-        style: { 'width': 34, 'height': 34, 'font-size': '10px', 'font-weight': '600', 'color': '#ffffff' }
+        style: {
+          'width':       32,
+          'height':      32,
+          'font-size':   '10px',
+          'font-weight': '600',
+          'color':       '#ffffff',
+        }
       },
+      // Edges — very quiet by default (Goal 5)
       {
         selector: 'edge',
         style: {
-          'width':              0.8,
-          'line-color':         'rgba(255,255,255,0.08)',
-          'target-arrow-color': 'rgba(255,255,255,0.12)',
+          'width':              0.7,
+          'line-color':         'rgba(255,255,255,0.07)',
+          'target-arrow-color': 'rgba(255,255,255,0.10)',
           'target-arrow-shape': 'triangle',
-          'arrow-scale':        0.6,
+          'arrow-scale':        0.55,
           'curve-style':        'bezier',
-          'label':              '',
-          'opacity':            0.6,
+          'label':              '',          // hide labels always
+          'opacity':            0.55,
         }
       },
+      // ── Highlighted (chat / legend focus) ─────────────────────────────────
       {
         selector: 'node.highlighted',
         style: {
-          'border-width':         2.5,
-          'border-color':         '#FFD700',
-          'border-opacity':       1,
-          'width':                32,
-          'height':               32,
-          'opacity':              1,
-          'z-index':              999,
-          'transition-property':  'border-width, width, height, opacity',
-          'transition-duration':  '0.3s',
+          'border-width':        2.5,
+          'border-color':        '#FFD700',
+          'border-opacity':      1,
+          'width':               30,
+          'height':              30,
+          'opacity':             1,
+          'z-index':             999,
+          'transition-property': 'border-width, width, height, opacity',
+          'transition-duration': '0.25s',
+        }
+      },
+      // Dimmed — heavily faded for non-matching nodes
+      {
+        selector: 'node.dimmed',
+        style: {
+          'opacity':               0.07,
+          'transition-property':   'opacity',
+          'transition-duration':   '0.25s',
         }
       },
       {
-        selector: 'node.dimmed',
-        style: { 'opacity': 0.08, 'transition-property': 'opacity', 'transition-duration': '0.3s' }
-      },
-      {
         selector: 'edge.dimmed',
-        style: { 'opacity': 0.03, 'transition-property': 'opacity', 'transition-duration': '0.3s' }
+        style: {
+          'opacity':               0.03,
+          'transition-property':   'opacity',
+          'transition-duration':   '0.25s',
+        }
       },
+      // Focused (node click) — white border, biggest size
       {
         selector: 'node.focused',
-        style: { 'border-width': 3, 'border-color': '#ffffff', 'border-opacity': 1, 'width': 40, 'height': 40, 'z-index': 1000 }
+        style: {
+          'border-width':  3,
+          'border-color':  '#ffffff',
+          'border-opacity': 1,
+          'width':         38,
+          'height':        38,
+          'z-index':       1000,
+        }
       },
       {
         selector: 'node.faded',
-        style: { 'opacity': 0.2, 'transition-property': 'opacity', 'transition-duration': '0.3s' }
+        style: {
+          'opacity':             0.18,
+          'transition-property': 'opacity',
+          'transition-duration': '0.25s',
+        }
+      },
+      // Legend filter — matching type emphasized
+      {
+        selector: 'node.legend-match',
+        style: {
+          'opacity':             1,
+          'border-width':        2,
+          'border-color':        'data(color)',
+          'border-opacity':      0.8,
+          'z-index':             10,
+          'transition-property': 'opacity, border-width',
+          'transition-duration': '0.2s',
+        }
       },
       {
-        selector: 'node.new-node',
-        style: { 'opacity': 0 }
-      }
+        selector: 'node.legend-dim',
+        style: {
+          'opacity':               0.06,
+          'transition-property':   'opacity',
+          'transition-duration':   '0.2s',
+        }
+      },
+      { selector: 'node.new-node', style: { 'opacity': 0 } },
     ],
     layout: { name: 'preset' },
-    minZoom: 0.05,
+    minZoom: 0.04,
     maxZoom: 6,
   });
 
@@ -107,7 +174,7 @@ function initCytoscape() {
     if (evt.target === cy) { resetAllHighlights(); closeNodeDetail(); }
   });
 
-  // Change 10: hover tooltip
+  // Hover tooltip
   cy.on('mouseover', 'node', function(e) {
     const node    = e.target;
     const tooltip = document.getElementById('node-tooltip');
@@ -125,7 +192,7 @@ function initCytoscape() {
     document.getElementById('node-tooltip').style.display = 'none';
   });
 
-  // Change 6: live zoom level display
+  // Zoom level display
   cy.on('zoom', function() {
     const el = document.getElementById('zoom-level');
     if (el) el.textContent = Math.round(cy.zoom() * 100) + '%';
@@ -139,19 +206,41 @@ async function loadGraph() {
   showGraphLoading('Loading graph...');
   try {
     const data = await fetchGraph();
-    currentGraphData = data;
     const elements = buildElements(data);
     cy.add(elements);
 
+    // Goal 1: tuned COSE layout — reduces extreme side placement for low-degree nodes
     cy.layout({
-      name: 'cose', animate: true, animationDuration: 500,
-      nodeRepulsion: 400000, idealEdgeLength: 100, gravity: 80,
-      numIter: 1000, initialTemp: 200, coolingFactor: 0.95, minTemp: 1.0,
-      fit: true, padding: 50,
+      name:              'cose',
+      animate:           true,
+      animationDuration: 600,
+      // Higher repulsion keeps nodes from bunching
+      nodeRepulsion:     (node) => {
+        // Plant nodes get lower repulsion → stay closer to neighbors, not pushed to edges
+        return node.data('label') === 'Plant' ? 150000 : 450000;
+      },
+      idealEdgeLength:   (edge) => 90,
+      edgeElasticity:    (edge) => 0.35,
+      gravity:            100,
+      gravityRange:       1.4,    // pulls low-degree nodes toward center of mass
+      numIter:            1200,
+      initialTemp:        220,
+      coolingFactor:      0.97,
+      minTemp:            1.0,
+      componentSpacing:   60,
+      fit:                true,
+      padding:            55,
+      randomize:          false,
     }).run();
 
     cy.ready(function() {
-      setTimeout(() => { document.getElementById('cy').style.opacity = '1'; }, 120);
+      setTimeout(() => {
+        document.getElementById('cy').style.opacity = '1';
+        // Soft-dim Plant nodes with degree ≤ 1 even further (Goal 1)
+        cy.nodes('[label="Plant"]').forEach(n => {
+          if (n.degree() <= 1) n.style('opacity', 0.3);
+        });
+      }, 150);
     });
 
     const statsEl = document.getElementById('header-stats');
@@ -163,6 +252,7 @@ async function loadGraph() {
 
     const zoomEl = document.getElementById('zoom-level');
     if (zoomEl) zoomEl.textContent = Math.round(cy.zoom() * 100) + '%';
+
   } catch (err) {
     console.error('[GraphIQ] loadGraph error:', err);
     hideGraphLoading();
@@ -195,10 +285,13 @@ function buildElements(data) {
   return [...nodes, ...edges];
 }
 
-// ─── Node Click → redesigned detail card (Changes 4 & 5) ─────────────────────
+// ─── Node Click → Detail Panel ────────────────────────────────────────────────
 function onNodeClick(evt) {
   const node = evt.target;
   selectedNodeId = node.id();
+
+  // Clear legend filter visual if active — click takes precedence
+  cy.elements().removeClass('legend-match legend-dim');
 
   // Focus mode
   cy.elements().removeClass('focused highlighted dimmed faded');
@@ -207,49 +300,50 @@ function onNodeClick(evt) {
   neighbors.nodes().addClass('highlighted');
   cy.elements().not(node).not(neighbors).addClass('faded');
 
-  const props   = node.data('properties') || {};
-  const label   = node.data('label') || 'Node';
-  const icon    = getNodeIcon(label);
-  const color   = getNodeColor(label);
+  renderDetailPanel(node);
+}
 
-  // Header
-  const iconEl  = document.getElementById('detail-icon');
+function renderDetailPanel(node) {
+  const props = node.data('properties') || {};
+  const label = node.data('label') || 'Node';
+  const color = getNodeColor(label);
+
+  document.getElementById('detail-icon').textContent = getNodeIcon(label);
   const labelEl = document.getElementById('detail-label-text');
-  if (iconEl)  iconEl.textContent = icon;
-  if (labelEl) { labelEl.textContent = label; labelEl.style.color = color; }
+  labelEl.textContent = label;
+  labelEl.style.color = color;
 
-  // Change 5: order by priority, show max 6
-  const priority  = PRIORITY_PROPS[label] || [];
-  const allKeys   = Object.keys(props).filter(k => props[k] !== null && props[k] !== undefined && props[k] !== '');
-  const ordered   = [
-    ...priority.filter(k => allKeys.includes(k)),
-    ...allKeys.filter(k => !priority.includes(k)),
-  ];
-  const shown     = ordered.slice(0, MAX_PROPS);
-  const remaining = ordered.length - shown.length;
+  // Priority-ordered properties, max 6
+  const priority = PRIORITY_PROPS[label] || [];
+  const allKeys  = Object.keys(props).filter(k => props[k] !== null && props[k] !== undefined && props[k] !== '');
+  const ordered  = [...priority.filter(k => allKeys.includes(k)), ...allKeys.filter(k => !priority.includes(k))];
+  const shown    = ordered.slice(0, MAX_PROPS);
+  const extra    = ordered.length - shown.length;
 
   let html = '';
   shown.forEach(key => {
-    const label_k = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-    const val     = truncateText(String(props[key]), 30);
+    const keyLabel = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+    let val = props[key];
+    // Auto-format dates and amounts
+    if (['creationDate','postingDate','clearingDate','actualGoodsMovementDate','billingDocumentDate'].includes(key)) {
+      val = formatDate(String(val));
+    } else if (['totalAmount','amount'].includes(key)) {
+      val = formatCurrency(val);
+    } else {
+      val = truncateText(String(val), 28);
+    }
     html += `<div class="detail-prop-row">
-      <span class="detail-prop-key">${label_k}</span>
+      <span class="detail-prop-key">${keyLabel}</span>
       <span class="detail-prop-value">${val}</span>
     </div>`;
   });
-  if (remaining > 0) {
+  if (extra > 0) {
     html += `<div class="detail-hidden-hint">Additional fields hidden for readability</div>`;
   }
 
   document.getElementById('detail-properties-list').innerHTML = html;
-
-  // Connection count
-  const connCount = node.connectedEdges().length;
-  const connEl    = document.getElementById('detail-connections');
-  if (connEl) connEl.textContent = `Connections: ${connCount}`;
-
-  const panel = document.getElementById('node-detail-panel');
-  panel.classList.remove('hidden');
+  document.getElementById('detail-connections').textContent = `Connections: ${node.connectedEdges().length}`;
+  document.getElementById('node-detail-panel').classList.remove('hidden');
 }
 
 function closeNodeDetail() {
@@ -257,7 +351,180 @@ function closeNodeDetail() {
   selectedNodeId = null;
 }
 
-// ─── Expand node (preset layout near parent) ──────────────────────────────────
+// ─── Goal 2 & 3: Legend Toggle + Filter ──────────────────────────────────────
+function initLegend() {
+  const header     = document.getElementById('legend-header');
+  const body       = document.getElementById('legend-body');
+  const chevron    = document.getElementById('legend-chevron');
+  const resetBtn   = document.getElementById('legend-reset-filter');
+
+  // Toggle open/close
+  header.addEventListener('click', () => {
+    const isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    header.classList.toggle('open', !isOpen);
+  });
+
+  // Filter by node type on item click
+  document.querySelectorAll('.legend-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation(); // don't close legend
+      const nodeType = item.dataset.type;
+      if (activeLegendFilter === nodeType) {
+        // Clicking same type again → clear filter
+        clearLegendFilter();
+      } else {
+        applyLegendFilter(nodeType);
+      }
+    });
+  });
+
+  // Reset shortcut
+  if (resetBtn) {
+    resetBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearLegendFilter();
+    });
+  }
+}
+
+function applyLegendFilter(nodeType) {
+  if (!cy) return;
+  activeLegendFilter = nodeType;
+
+  // Clear any chat/click highlights first
+  cy.elements().removeClass('highlighted dimmed focused faded legend-match legend-dim');
+
+  const matching  = cy.nodes().filter(n => n.data('label') === nodeType);
+  const nonMatch  = cy.nodes().filter(n => n.data('label') !== nodeType);
+
+  // Dim non-matching
+  nonMatch.addClass('legend-dim');
+  cy.edges().addClass('dimmed');
+
+  // Highlight matching + their edges
+  matching.addClass('legend-match');
+  matching.connectedEdges().removeClass('dimmed');
+
+  // Update legend UI
+  document.querySelectorAll('.legend-item').forEach(el => {
+    el.classList.toggle('active-filter', el.dataset.type === nodeType);
+  });
+  const resetBtn = document.getElementById('legend-reset-filter');
+  if (resetBtn) resetBtn.classList.add('visible');
+
+  // Zoom to matching set if any found
+  if (matching.length > 0) {
+    cy.animate({ fit: { eles: matching, padding: 70 }, duration: 500, easing: 'ease-in-out-cubic' });
+  }
+}
+
+function clearLegendFilter() {
+  activeLegendFilter = null;
+  cy.elements().removeClass('legend-match legend-dim dimmed');
+  cy.elements().style({ opacity: 1 });
+  document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active-filter'));
+  const resetBtn = document.getElementById('legend-reset-filter');
+  if (resetBtn) resetBtn.classList.remove('visible');
+  // Restore plant soft-dim
+  cy.nodes('[label="Plant"]').forEach(n => {
+    if (n.degree() <= 1) n.style('opacity', 0.3);
+  });
+}
+
+// ─── Goal 4: Robust reset ─────────────────────────────────────────────────────
+function resetAllHighlights() {
+  if (!cy) return;
+  cy.elements().removeClass('highlighted dimmed focused faded legend-match legend-dim new-node');
+  cy.elements().style({ opacity: 1 });
+  // Re-apply plant soft-dim
+  cy.nodes('[label="Plant"]').forEach(n => {
+    if (n.degree() <= 1) n.style('opacity', 0.3);
+  });
+  // Also clear any active legend filter indicator (but keep legend open)
+  if (activeLegendFilter) clearLegendFilter();
+}
+
+// ─── Highlight from Chat (Goal 7: + smooth zoom) ─────────────────────────────
+function highlightNodesFromChat(rawResults) {
+  if (!cy || !rawResults || rawResults.length === 0) return;
+  resetAllHighlights();
+
+  const allValues = [];
+  rawResults.forEach(result => {
+    if (typeof result === 'object' && result !== null) {
+      Object.values(result).forEach(val => {
+        if (val !== null && val !== undefined) allValues.push(String(val));
+      });
+    }
+  });
+
+  const matchedNodes = cy.nodes().filter(node => {
+    const nodeId = node.data('id');
+    const props  = node.data('properties') || {};
+    return allValues.some(val =>
+      nodeId === val ||
+      nodeId.includes(val) ||
+      Object.values(props).some(p => String(p) === val)
+    );
+  });
+
+  if (matchedNodes.length === 0) return; // leave graph as-is
+
+  cy.nodes().addClass('dimmed');
+  cy.edges().addClass('dimmed');
+  matchedNodes.forEach(node => {
+    node.removeClass('dimmed').addClass('highlighted');
+    node.connectedEdges().removeClass('dimmed');
+  });
+
+  // Goal 7: smooth zoom to results
+  cy.animate({ fit: { eles: matchedNodes, padding: 80 }, duration: 600, easing: 'ease-in-out-cubic' });
+}
+
+// ─── Path Highlight ───────────────────────────────────────────────────────────
+function highlightPath(rawResults) {
+  if (!cy) return;
+  resetAllHighlights();
+
+  const allValues = [];
+  rawResults.forEach(result => {
+    if (typeof result === 'object' && result !== null) {
+      Object.values(result).forEach(val => {
+        if (val !== null && val !== undefined) allValues.push(String(val));
+      });
+    }
+  });
+
+  const matchedNodes = cy.nodes().filter(node => {
+    const nodeId = node.data('id');
+    const props  = node.data('properties') || {};
+    return allValues.some(val =>
+      nodeId === val || nodeId.includes(val) ||
+      Object.values(props).some(p => String(p) === val)
+    );
+  });
+
+  if (matchedNodes.length < 2) { highlightNodesFromChat(rawResults); return; }
+
+  let pathCollection = cy.collection();
+  for (let i = 0; i < matchedNodes.length - 1; i++) {
+    try {
+      const dj   = cy.elements().dijkstra({ root: matchedNodes[i], directed: true });
+      const path = dj.pathTo(matchedNodes[i + 1]);
+      if (path && path.length > 0) pathCollection = pathCollection.union(path);
+    } catch (e) { /* no path */ }
+  }
+
+  cy.nodes().addClass('dimmed');
+  cy.edges().addClass('dimmed');
+  const toHighlight = pathCollection.length > 0 ? pathCollection : matchedNodes;
+  toHighlight.removeClass('dimmed');
+  toHighlight.nodes().addClass('highlighted');
+  cy.animate({ fit: { eles: toHighlight, padding: 60 }, duration: 600, easing: 'ease-in-out-cubic' });
+}
+
+// ─── Expand Node (preset layout near parent) ──────────────────────────────────
 async function expandSelectedNode() {
   if (!selectedNodeId) return;
   const btn = document.getElementById('btn-expand-node');
@@ -282,8 +549,8 @@ async function expandSelectedNode() {
             properties: n.data.properties || {},
           },
           position: {
-            x: parentPos.x + (Math.random() * 120 - 60),
-            y: parentPos.y + (Math.random() * 120 - 60),
+            x: parentPos.x + (Math.random() * 130 - 65),
+            y: parentPos.y + (Math.random() * 130 - 65),
           },
           classes: 'new-node',
         });
@@ -312,81 +579,25 @@ async function expandSelectedNode() {
   btn.textContent = 'Expand Neighbors';
 }
 
-// ─── Highlight from Chat ──────────────────────────────────────────────────────
-function highlightNodesFromChat(rawResults) {
-  if (!cy || !rawResults || rawResults.length === 0) return;
-  resetAllHighlights();
-  const allValues = [];
-  rawResults.forEach(result => {
-    if (typeof result === 'object' && result !== null) {
-      Object.values(result).forEach(val => { if (val !== null && val !== undefined) allValues.push(String(val)); });
-    }
-  });
-  const matchedNodes = cy.nodes().filter(node => {
-    const nodeId = node.data('id');
-    const props  = node.data('properties') || {};
-    return allValues.some(val => nodeId === val || nodeId.includes(val) || Object.values(props).some(p => String(p) === val));
-  });
-  if (matchedNodes.length === 0) return;
-  cy.nodes().addClass('dimmed');
-  cy.edges().addClass('dimmed');
-  matchedNodes.forEach(node => { node.removeClass('dimmed').addClass('highlighted'); node.connectedEdges().removeClass('dimmed'); });
-  cy.animate({ fit: { eles: matchedNodes, padding: 80 }, duration: 600, easing: 'ease-in-out-cubic' });
-}
-
-// ─── Path Highlight ───────────────────────────────────────────────────────────
-function highlightPath(rawResults) {
-  if (!cy) return;
-  resetAllHighlights();
-  const allValues = [];
-  rawResults.forEach(result => {
-    if (typeof result === 'object' && result !== null) {
-      Object.values(result).forEach(val => { if (val !== null && val !== undefined) allValues.push(String(val)); });
-    }
-  });
-  const matchedNodes = cy.nodes().filter(node => {
-    const nodeId = node.data('id');
-    const props  = node.data('properties') || {};
-    return allValues.some(val => nodeId === val || nodeId.includes(val) || Object.values(props).some(p => String(p) === val));
-  });
-  if (matchedNodes.length < 2) { highlightNodesFromChat(rawResults); return; }
-  let pathCollection = cy.collection();
-  for (let i = 0; i < matchedNodes.length - 1; i++) {
-    try {
-      const dj   = cy.elements().dijkstra({ root: matchedNodes[i], directed: true });
-      const path = dj.pathTo(matchedNodes[i + 1]);
-      if (path && path.length > 0) pathCollection = pathCollection.union(path);
-    } catch (e) { /* no path */ }
-  }
-  cy.nodes().addClass('dimmed');
-  cy.edges().addClass('dimmed');
-  const toHighlight = pathCollection.length > 0 ? pathCollection : matchedNodes;
-  toHighlight.removeClass('dimmed');
-  toHighlight.nodes().addClass('highlighted');
-  cy.animate({ fit: { eles: toHighlight, padding: 60 }, duration: 600, easing: 'ease-in-out-cubic' });
-}
-
-function resetAllHighlights() {
-  if (!cy) return;
-  cy.elements().removeClass('highlighted dimmed focused faded new-node');
-  cy.elements().style({ 'opacity': 1 });
-}
-
-// ─── Graph Controls + all new buttons ────────────────────────────────────────
+// ─── Graph Controls ────────────────────────────────────────────────────────────
 function initGraphControls() {
-  // Fit / Reset (top pill)
+  // Fit — reliable with padding + cy.resize() first (Goal 4)
   document.getElementById('btn-fit').addEventListener('click', () => {
-    cy.animate({ fit: { padding: 50 }, duration: 400 });
+    cy.resize();
+    cy.animate({ fit: { padding: 55 }, duration: 400 });
   });
 
+  // Full reset — clears all state (Goal 4)
   document.getElementById('btn-reset').addEventListener('click', async () => {
-    resetAllHighlights(); closeNodeDetail();
+    resetAllHighlights();
+    clearLegendFilter();
+    closeNodeDetail();
     cy.elements().remove();
     document.getElementById('cy').style.opacity = '0';
     await loadGraph();
   });
 
-  // Bottom nav zoom
+  // Zoom (Goal 4)
   document.getElementById('btn-zoom-in').addEventListener('click', () => {
     cy.animate({ zoom: cy.zoom() * 1.3, center: { eles: cy.elements() } }, { duration: 220 });
   });
@@ -394,73 +605,61 @@ function initGraphControls() {
     cy.animate({ zoom: cy.zoom() * 0.75, center: { eles: cy.elements() } }, { duration: 220 });
   });
 
-  // Bottom nav prev / next (pan left/right)
-  document.getElementById('btn-nav-prev').addEventListener('click', () => {
-    cy.panBy({ x: 120, y: 0 });
-  });
-  document.getElementById('btn-nav-next').addEventListener('click', () => {
-    cy.panBy({ x: -120, y: 0 });
-  });
+  // Pan
+  document.getElementById('btn-nav-prev').addEventListener('click', () => { cy.panBy({ x: 130, y: 0 }); });
+  document.getElementById('btn-nav-next').addEventListener('click', () => { cy.panBy({ x: -130, y: 0 }); });
 
-  // Change 6: Download PNG
+  // Export PNG
   document.getElementById('btn-download').addEventListener('click', function() {
     const png  = cy.png({ scale: 2 });
     const link = document.createElement('a');
-    link.href  = png;
-    link.download = 'graphiq-export.png';
-    link.click();
+    link.href = png; link.download = 'graphiq-export.png'; link.click();
   });
 
-  // Change 6: Fullscreen
+  // Fullscreen
   document.getElementById('btn-fullscreen').addEventListener('click', function() {
-    const graphPanel = document.getElementById('graph-panel');
+    const gp = document.getElementById('graph-panel');
     if (!document.fullscreenElement) {
-      graphPanel.requestFullscreen && graphPanel.requestFullscreen();
+      gp.requestFullscreen && gp.requestFullscreen();
     } else {
       document.exitFullscreen && document.exitFullscreen();
     }
   });
 
-  // Node detail
+  // Node detail close
   document.getElementById('node-detail-close').addEventListener('click', () => {
     resetAllHighlights(); closeNodeDetail();
   });
   document.getElementById('btn-expand-node').addEventListener('click', expandSelectedNode);
 
-  // Change 2: Minimize / Expand
+  // Minimize / Expand (Goal 4: calls cy.resize() after transition)
   document.getElementById('btn-minimize').addEventListener('click', function() {
-    const graphPanel = document.getElementById('graph-panel');
-    const chatPanel  = document.getElementById('chat-panel');
-    const isMin      = graphPanel.classList.contains('minimized');
-    const span       = this.querySelector('span');
-
+    const gp   = document.getElementById('graph-panel');
+    const cp   = document.getElementById('chat-panel');
+    const span = this.querySelector('span');
+    const isMin = gp.classList.contains('minimized');
     if (isMin) {
-      graphPanel.classList.remove('minimized');
-      chatPanel.classList.remove('expanded');
+      gp.classList.remove('minimized');
+      cp.classList.remove('expanded');
       if (span) span.textContent = 'Minimize';
-      setTimeout(() => { cy.resize(); cy.fit(); }, 320);
+      setTimeout(() => { cy.resize(); cy.fit(); }, 340);
     } else {
-      graphPanel.classList.add('minimized');
-      chatPanel.classList.add('expanded');
+      gp.classList.add('minimized');
+      cp.classList.add('expanded');
       if (span) span.textContent = 'Expand';
     }
   });
 
-  // Change 3: Hide / Show Granular Overlay
+  // Overlay toggle (Goal 5)
   document.getElementById('btn-overlay').addEventListener('click', function() {
     overlayVisible = !overlayVisible;
     const span = this.querySelector('span');
-    if (!overlayVisible) {
-      cy.edges().style({ 'opacity': 0.03, 'label': '' });
-      if (span) span.textContent = 'Show Granular Overlay';
-    } else {
-      cy.edges().style({ 'opacity': 0.6, 'label': '' });
-      if (span) span.textContent = 'Hide Granular Overlay';
-    }
+    cy.edges().style({ 'opacity': overlayVisible ? 0.55 : 0.03, 'label': '' });
+    if (span) span.textContent = overlayVisible ? 'Hide Overlay' : 'Show Overlay';
   });
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Utility: counts, loading, status ────────────────────────────────────────
 function updateCounts() {
   document.getElementById('nodes-count-badge').textContent = `${cy.nodes().length} nodes`;
   document.getElementById('edges-count-badge').textContent = `${cy.edges().length} edges`;
@@ -477,9 +676,9 @@ function hideGraphLoading() {
 }
 
 function showGraphError(msg) {
-  const el      = document.getElementById('graph-loading');
-  const spinner = el.querySelector('.graph-spinner');
-  if (spinner) spinner.style.display = 'none';
+  const el = document.getElementById('graph-loading');
+  const sp = el.querySelector('.graph-spinner');
+  if (sp) sp.style.display = 'none';
   document.getElementById('graph-loading-text').textContent = msg;
   el.style.display = 'flex';
 }
@@ -495,5 +694,6 @@ function updateStatus(connected) {
 document.addEventListener('DOMContentLoaded', async () => {
   initCytoscape();
   initGraphControls();
+  initLegend();   // Goal 2 & 3
   await loadGraph();
 });

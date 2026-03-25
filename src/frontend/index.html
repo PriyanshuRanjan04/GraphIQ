@@ -13,7 +13,7 @@
 </head>
 <body>
 
-  <!-- ══ HEADER ══════════════════════════════════════════════ -->
+  <!-- ══ HEADER ══════════════════════════════════════════════════ -->
   <header id="app-header">
     <div class="header-left">
       <div class="header-logo">
@@ -38,7 +38,7 @@
     </div>
   </header>
 
-  <!-- ══ CHANGE 1: BREADCRUMB BAR ════════════════════════════ -->
+  <!-- ══ BREADCRUMB BAR ══════════════════════════════════════════ -->
   <div class="breadcrumb-bar">
     <div class="breadcrumb-left">
       <button class="btn-minimize" id="btn-minimize">
@@ -52,7 +52,7 @@
           <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill="none"/>
           <circle cx="7" cy="7" r="2" fill="currentColor"/>
         </svg>
-        <span>Hide Granular Overlay</span>
+        <span>Hide Overlay</span>
       </button>
     </div>
     <div class="breadcrumb-center">
@@ -63,13 +63,13 @@
     <div class="breadcrumb-right"></div>
   </div>
 
-  <!-- ══ MAIN LAYOUT ══════════════════════════════════════════ -->
+  <!-- ══ MAIN LAYOUT ═════════════════════════════════════════════ -->
   <div id="main-container">
 
-    <!-- ──── LEFT: GRAPH PANEL ──────────────────────────────── -->
+    <!-- ──── LEFT: GRAPH PANEL ──────────────────────────────────── -->
     <div id="graph-panel">
 
-      <!-- Top controls (kept minimal, breadcrumb has minimize) -->
+      <!-- Top controls -->
       <div id="graph-controls">
         <button class="ctrl-btn" id="btn-fit" title="Fit all">⊡</button>
         <button class="ctrl-btn" id="btn-reset" title="Reset graph">↺</button>
@@ -79,17 +79,50 @@
         <span id="edges-count-badge" class="count-label">—</span>
       </div>
 
-      <!-- Legend -->
+      <!-- COLLAPSIBLE LEGEND (goal 2) -->
       <div id="graph-legend">
-        <div class="legend-title">NODE TYPES</div>
-        <div class="legend-item"><span class="legend-dot" style="background:#4A90D9"></span>Customer</div>
-        <div class="legend-item"><span class="legend-dot" style="background:#7ED321"></span>SalesOrder</div>
-        <div class="legend-item"><span class="legend-dot" style="background:#F5A623"></span>Delivery</div>
-        <div class="legend-item"><span class="legend-dot" style="background:#D0021B"></span>BillingDoc</div>
-        <div class="legend-item"><span class="legend-dot" style="background:#9B59B6"></span>Payment</div>
-        <div class="legend-item"><span class="legend-dot" style="background:#1ABC9C"></span>Journal</div>
-        <div class="legend-item"><span class="legend-dot" style="background:#E67E22"></span>Product</div>
-        <div class="legend-item"><span class="legend-dot" style="background:#95A5A6"></span>Plant</div>
+        <!-- Legend header — click to toggle -->
+        <div class="legend-header" id="legend-header">
+          <span class="legend-title">NODE TYPES</span>
+          <span class="legend-chevron" id="legend-chevron">▾</span>
+        </div>
+        <!-- Legend body — click items to filter (goal 3) -->
+        <div class="legend-body" id="legend-body">
+          <div class="legend-item" data-type="Customer">
+            <span class="legend-dot" style="background:#4A90D9"></span>
+            <span class="legend-label">Customer</span>
+          </div>
+          <div class="legend-item" data-type="SalesOrder">
+            <span class="legend-dot" style="background:#7ED321"></span>
+            <span class="legend-label">SalesOrder</span>
+          </div>
+          <div class="legend-item" data-type="Delivery">
+            <span class="legend-dot" style="background:#F5A623"></span>
+            <span class="legend-label">Delivery</span>
+          </div>
+          <div class="legend-item" data-type="BillingDocument">
+            <span class="legend-dot" style="background:#D0021B"></span>
+            <span class="legend-label">BillingDocument</span>
+          </div>
+          <div class="legend-item" data-type="Payment">
+            <span class="legend-dot" style="background:#9B59B6"></span>
+            <span class="legend-label">Payment</span>
+          </div>
+          <div class="legend-item" data-type="JournalEntry">
+            <span class="legend-dot" style="background:#1ABC9C"></span>
+            <span class="legend-label">JournalEntry</span>
+          </div>
+          <div class="legend-item" data-type="Product">
+            <span class="legend-dot" style="background:#E67E22"></span>
+            <span class="legend-label">Product</span>
+          </div>
+          <div class="legend-item" data-type="Plant">
+            <span class="legend-dot" style="background:#95A5A6"></span>
+            <span class="legend-label">Plant</span>
+          </div>
+          <!-- Reset filter shortcut -->
+          <div class="legend-reset" id="legend-reset-filter">Clear filter</div>
+        </div>
       </div>
 
       <!-- Graph loading overlay -->
@@ -104,7 +137,7 @@
       <!-- Hover tooltip -->
       <div id="node-tooltip"></div>
 
-      <!-- CHANGE 4: Node Detail Card (redesigned) -->
+      <!-- Node Detail Panel -->
       <div id="node-detail-panel" class="hidden">
         <div class="detail-header">
           <div class="detail-title">
@@ -120,10 +153,10 @@
         </div>
       </div>
 
-      <!-- CHANGE 6: Bottom Navigation Bar -->
+      <!-- Bottom Navigation Bar -->
       <div class="graph-bottom-nav">
-        <button class="nav-btn" id="btn-nav-prev" title="Previous">←</button>
-        <button class="nav-btn" id="btn-nav-next" title="Next">→</button>
+        <button class="nav-btn" id="btn-nav-prev" title="Pan left">←</button>
+        <button class="nav-btn" id="btn-nav-next" title="Pan right">→</button>
         <div class="nav-divider"></div>
         <button class="nav-btn" id="btn-zoom-out" title="Zoom out">−</button>
         <span class="zoom-level" id="zoom-level">100%</span>
@@ -135,7 +168,7 @@
 
     </div>
 
-    <!-- ──── RIGHT: CHAT PANEL ──────────────────────────────── -->
+    <!-- ──── RIGHT: CHAT PANEL ──────────────────────────────────── -->
     <div id="chat-panel">
 
       <div id="chat-header">
@@ -151,7 +184,7 @@
         <div class="chips-label">Suggestions</div>
         <div class="chips-row">
           <button class="chip" data-query="Which customer placed the most orders?">Top customer by orders</button>
-          <button class="chip" data-query="Trace billing document 91150187">Trace billing doc 91150187</button>
+          <button class="chip" data-query="Trace billing document 91150187">Trace billing 91150187</button>
           <button class="chip" data-query="Find all orders with no billing documents">Orders without billing</button>
         </div>
       </div>
@@ -173,7 +206,7 @@
         <span id="meta-time" class="meta-tag"></span>
       </div>
 
-      <!-- CHANGE 7: Agent status bar -->
+      <!-- Agent status bar -->
       <div class="agent-status" id="agent-status">
         <div class="agent-avatar">
           <div class="agent-dot"></div>
@@ -188,7 +221,8 @@
         <button id="btn-send" title="Send">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
             <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
       </div>
