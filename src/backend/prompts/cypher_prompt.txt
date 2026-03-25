@@ -9,6 +9,10 @@ Generate a valid Neo4j Cypher query for the given user question. Return ONLY the
 5. Return meaningful property aliases (e.g., c.fullName AS customer, NOT c.fullName AS `c.fullName`).
 6. String matching should be case-insensitive where appropriate (use toLower()).
 7. When matching IDs, always treat them as strings (e.g., WHERE s.id = '740506').
+8. FUZZY ID MATCHING: When a user asks to find or trace a specific ID, use CONTAINS instead of exact = to handle partial matches and ID format differences:
+   - Instead of: WHERE b.id = '90504208'
+   - Use:        WHERE b.id CONTAINS '90504208' OR toString(b.id) CONTAINS '90504208'
+9. FALLBACK QUERIES: When an ID lookup may return zero rows, add a second UNION query or a LIMIT 5 fallback that shows similar available records so the user knows what IS in the dataset.
 
 === SCHEMA REFERENCE ===
 
@@ -35,54 +39,151 @@ Relationships:
 
 === FEW-SHOT EXAMPLES ===
 
-Question: Which customers have placed the most orders?
+Question: Trace billing document 91150187
 ```cypher
-MATCH (c:Customer)-[:PLACED]->(s:SalesOrder)
-RETURN c.fullName AS customer, COUNT(s) AS orderCount
-ORDER BY orderCount DESC
+MATCH (b:BillingDocument)
+WHERE b.id CONTAINS '91150187'
+OPTIONAL MATCH (s:SalesOrder)-[:HAS_BILLING]->(b)
+OPTIONAL MATCH (c:Customer)-[:PLACED]->(s)
+OPTIONAL MATCH (s)-[:HAS_DELIVERY]->(d:Delivery)
+OPTIONAL MATCH (b)-[:POSTED_TO]->(j:JournalEntry)
+OPTIONAL MATCH (p:Payment)-[:CLEARS]->(j)
+RETURN
+  c.fullName AS customer,
+  s.id AS salesOrder,
+  s.totalAmount AS orderAmount,
+  b.id AS billingDocument,
+  b.totalAmount AS billingAmount,
+  b.isCancelled AS isCancelled,
+  d.id AS delivery,
+  d.goodsMovementStatus AS deliveryStatus,
+  j.id AS journalEntry,
+  j.postingDate AS postingDate,
+  p.id AS payment,
+  p.amount AS paymentAmount
 LIMIT 10
 ```
 
-Question: Trace the full flow of billing document 91150187
+Question: Which customer placed the most orders?
 ```cypher
-MATCH (c:Customer)-[:PLACED]->(s:SalesOrder)-[:HAS_BILLING]->(b:BillingDocument)
-OPTIONAL MATCH (b)-[:POSTED_TO]->(j:JournalEntry)
-WHERE b.id = '91150187'
-RETURN c.fullName AS customer, s.id AS salesOrder, b.id AS billingDocument, b.totalAmount AS amount, j.id AS journalEntry
+MATCH (c:Customer)-[:PLACED]->(s:SalesOrder)
+RETURN
+  c.fullName AS customer,
+  c.id AS customerId,
+  COUNT(s) AS orderCount,
+  SUM(toFloat(s.totalAmount)) AS totalValue
+ORDER BY orderCount DESC
+LIMIT 5
 ```
 
 Question: Find sales orders with no billing documents
 ```cypher
 MATCH (s:SalesOrder)
 WHERE NOT (s)-[:HAS_BILLING]->()
-RETURN s.id AS salesOrder, s.totalAmount AS amount, s.deliveryStatus AS deliveryStatus
-LIMIT 50
+OPTIONAL MATCH (c:Customer)-[:PLACED]->(s)
+RETURN
+  s.id AS salesOrder,
+  s.totalAmount AS amount,
+  s.deliveryStatus AS deliveryStatus,
+  s.creationDate AS creationDate,
+  c.fullName AS customer
+ORDER BY s.creationDate DESC
+LIMIT 20
 ```
 
-Question: Which products appear in the most sales orders?
+Question: Show all payments for customer Nelson
+```cypher
+MATCH (c:Customer)-[:PLACED]->(s:SalesOrder)
+WHERE toLower(c.fullName) CONTAINS 'nelson'
+OPTIONAL MATCH (s)-[:HAS_BILLING]->(b:BillingDocument)
+OPTIONAL MATCH (b)-[:POSTED_TO]->(j:JournalEntry)
+OPTIONAL MATCH (p:Payment)-[:CLEARS]->(j)
+RETURN
+  c.fullName AS customer,
+  s.id AS salesOrder,
+  b.id AS billingDocument,
+  p.id AS payment,
+  p.amount AS paymentAmount,
+  p.clearingDate AS paymentDate
+ORDER BY p.clearingDate DESC
+LIMIT 20
+```
+
+Question: Which products appear in most orders?
 ```cypher
 MATCH (p:Product)<-[:CONTAINS]-(s:SalesOrder)
-RETURN p.id AS product, COUNT(s) AS orderCount
+RETURN
+  p.id AS product,
+  COUNT(s) AS orderCount,
+  COLLECT(DISTINCT s.id)[0..3] AS sampleOrders
 ORDER BY orderCount DESC
 LIMIT 10
 ```
 
-Question: Show all deliveries shipped from a specific plant
+Question: Find incomplete order flows
 ```cypher
-MATCH (d:Delivery)-[:SHIPS_FROM]->(pl:Plant)
-WHERE pl.name IS NOT NULL
-RETURN d.id AS delivery, pl.name AS plant, d.goodsMovementStatus AS status, d.actualGoodsMovementDate AS shippedDate
-ORDER BY d.actualGoodsMovementDate DESC
-LIMIT 50
+MATCH (s:SalesOrder)
+OPTIONAL MATCH (s)-[:HAS_DELIVERY]->(d:Delivery)
+OPTIONAL MATCH (s)-[:HAS_BILLING]->(b:BillingDocument)
+OPTIONAL MATCH (b)-[:POSTED_TO]->(j:JournalEntry)
+OPTIONAL MATCH (c:Customer)-[:PLACED]->(s)
+WITH s, c,
+     COUNT(d) AS hasDelivery,
+     COUNT(b) AS hasBilling,
+     COUNT(j) AS hasJournal
+WHERE hasDelivery = 0
+   OR hasBilling = 0
+   OR hasJournal = 0
+RETURN
+  s.id AS salesOrder,
+  c.fullName AS customer,
+  s.totalAmount AS amount,
+  CASE WHEN hasDelivery = 0 THEN 'Missing Delivery' ELSE 'Has Delivery' END AS deliveryStatus,
+  CASE WHEN hasBilling  = 0 THEN 'Missing Billing'  ELSE 'Has Billing'  END AS billingStatus,
+  CASE WHEN hasJournal  = 0 THEN 'Missing Journal'  ELSE 'Has Journal'  END AS journalStatus
+ORDER BY s.totalAmount DESC
+LIMIT 20
 ```
 
-Question: What is the total billing amount per customer?
+Question: How many of each entity type exist?
+```cypher
+MATCH (c:Customer)       WITH COUNT(c) AS customers
+MATCH (s:SalesOrder)     WITH customers, COUNT(s) AS orders
+MATCH (d:Delivery)       WITH customers, orders, COUNT(d) AS deliveries
+MATCH (b:BillingDocument) WITH customers, orders, deliveries, COUNT(b) AS billingDocs
+MATCH (p:Payment)        WITH customers, orders, deliveries, billingDocs, COUNT(p) AS payments
+MATCH (j:JournalEntry)   WITH customers, orders, deliveries, billingDocs, payments, COUNT(j) AS journals
+RETURN customers, orders, deliveries, billingDocs, payments, journals
+```
+
+Question: Show cancelled billing documents
+```cypher
+MATCH (b:BillingDocument)
+WHERE b.isCancelled = true OR b.isCancelled = 'true'
+OPTIONAL MATCH (s:SalesOrder)-[:HAS_BILLING]->(b)
+OPTIONAL MATCH (c:Customer)-[:PLACED]->(s)
+OPTIONAL MATCH (b)-[:CANCELLED_BY]->(cb:BillingDocument)
+RETURN
+  b.id AS originalBilling,
+  b.totalAmount AS amount,
+  c.fullName AS customer,
+  s.id AS salesOrder,
+  cb.id AS cancelledBy
+ORDER BY b.creationDate DESC
+LIMIT 20
+```
+
+Question: What is total revenue by customer?
 ```cypher
 MATCH (c:Customer)-[:PLACED]->(s:SalesOrder)-[:HAS_BILLING]->(b:BillingDocument)
-WHERE b.isCancelled = false
-RETURN c.fullName AS customer, SUM(b.totalAmount) AS totalBilled, b.currency AS currency
-ORDER BY totalBilled DESC
-LIMIT 50
+WHERE b.isCancelled = false OR b.isCancelled = 'false'
+RETURN
+  c.fullName AS customer,
+  COUNT(DISTINCT s) AS orders,
+  COUNT(DISTINCT b) AS billingDocs,
+  SUM(toFloat(b.totalAmount)) AS totalRevenue
+ORDER BY totalRevenue DESC
+LIMIT 20
 ```
 
 Now generate the Cypher query for the following question:

@@ -1,101 +1,113 @@
 // GraphIQ - graph.js
-// Cytoscape.js graph visualization, interaction, expand, and path highlighting
+// Cytoscape visualization — premium redesign (Changes 9, 10, 12)
+// + all previous improvements (2, 3, 6, 7)
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let cy = null;
 let selectedNodeId = null;
 let currentGraphData = { nodes: [], edges: [] };
 
-// ─── Initialize Cytoscape ─────────────────────────────────────────────────────
+const TRACE_KEYWORDS_GRAPH = ['trace','flow','path','journey','follow','track','route','chain'];
+
+// ─── Initialize Cytoscape (Change 9: updated node/edge styles) ────────────────
 function initCytoscape() {
   cy = cytoscape({
     container: document.getElementById('cy'),
     style: [
+      // Change 9: smaller, cleaner nodes — no border by default
       {
         selector: 'node',
         style: {
-          'background-color': 'data(color)',
-          'label': 'data(displayName)',
-          'color': '#ffffff',
-          'font-size': '9px',
-          'font-family': 'Inter, system-ui, sans-serif',
-          'text-valign': 'bottom',
-          'text-halign': 'center',
-          'text-margin-y': 4,
-          'text-outline-color': '#0f1117',
-          'text-outline-width': 2,
-          'width': 28,
-          'height': 28,
-          'border-width': 2,
-          'border-color': 'data(color)',
-          'border-opacity': 0.5,
+          'background-color':  'data(color)',
+          'label':             'data(displayName)',
+          'color':             'rgba(255,255,255,0.70)',
+          'font-size':         '9px',
+          'font-family':       'Inter, system-ui, sans-serif',
+          'text-valign':       'bottom',
+          'text-halign':       'center',
+          'text-margin-y':     '3px',
+          'text-outline-color':'#13151f',
+          'text-outline-width': 1.5,
+          'text-max-width':    '60px',
+          'text-wrap':         'ellipsis',
+          'width':             22,
+          'height':            22,
+          'border-width':      0,
         }
       },
+      // Change 9: Customer nodes slightly bigger + brighter label
+      {
+        selector: 'node[label="Customer"]',
+        style: {
+          'width':       34,
+          'height':      34,
+          'font-size':   '10px',
+          'font-weight': '600',
+          'color':       '#ffffff',
+        }
+      },
+      // Change 9: much quieter edges — no labels
       {
         selector: 'edge',
         style: {
-          'width': 1.2,
-          'line-color': '#2d3147',
-          'target-arrow-color': '#4A90D9',
-          'target-arrow-shape': 'triangle',
-          'arrow-scale': 0.8,
-          'curve-style': 'bezier',
-          'label': 'data(label)',
-          'font-size': '7px',
-          'color': '#6b7280',
-          'font-family': 'Inter, system-ui, sans-serif',
-          'text-rotation': 'autorotate',
-          'text-margin-y': -6,
-          'text-outline-color': '#0f1117',
-          'text-outline-width': 1.5,
+          'width':               0.8,
+          'line-color':          'rgba(255,255,255,0.08)',
+          'target-arrow-color':  'rgba(255,255,255,0.12)',
+          'target-arrow-shape':  'triangle',
+          'arrow-scale':         0.6,
+          'curve-style':         'bezier',
+          'label':               '',
+          'opacity':             0.6,
         }
       },
-      // Improvement 6: smooth transition on highlighted nodes
+      // Change 9 + Imp 6: highlighted — stronger gold border + smooth transition
       {
         selector: 'node.highlighted',
         style: {
-          'border-width': 4,
-          'border-color': '#FFD700',
+          'border-width':  2.5,
+          'border-color':  '#FFD700',
           'border-opacity': 1,
-          'background-color': 'data(color)',
-          'width': 45,
-          'height': 45,
-          'transition-property': 'border-width, width, height',
-          'transition-duration': '0.3s',
+          'width':         32,
+          'height':        32,
+          'opacity':       1,
+          'z-index':       999,
+          'transition-property':  'border-width, width, height, opacity',
+          'transition-duration':  '0.3s',
         }
       },
-      // Improvement 6: smooth dim transition
+      // Change 9: more aggressive dimming
       {
         selector: 'node.dimmed',
         style: {
-          'opacity': 0.15,
-          'transition-property': 'opacity',
-          'transition-duration': '0.3s',
+          'opacity':               0.08,
+          'transition-property':   'opacity',
+          'transition-duration':   '0.3s',
         }
       },
       {
         selector: 'edge.dimmed',
         style: {
-          'opacity': 0.05,
-          'transition-property': 'opacity',
-          'transition-duration': '0.3s',
+          'opacity':               0.03,
+          'transition-property':   'opacity',
+          'transition-duration':   '0.3s',
         }
       },
+      // Change 9: focused node — white border, larger
       {
         selector: 'node.focused',
         style: {
-          'border-width': 4,
-          'border-color': '#ffffff',
+          'border-width':  3,
+          'border-color':  '#ffffff',
           'border-opacity': 1,
-          'width': 44,
-          'height': 44,
-          'z-index': 999,
+          'width':         40,
+          'height':        40,
+          'z-index':       1000,
         }
       },
       {
         selector: 'node.faded',
         style: {
-          'opacity': 0.25,
+          'opacity':             0.2,
           'transition-property': 'opacity',
           'transition-duration': '0.3s',
         }
@@ -105,10 +117,9 @@ function initCytoscape() {
         style: { 'opacity': 0 }
       }
     ],
-    // Default layout (overridden in loadGraph)
     layout: { name: 'preset' },
-    minZoom: 0.1,
-    maxZoom: 5,
+    minZoom: 0.05,
+    maxZoom: 6,
   });
 
   cy.on('tap', 'node', onNodeClick);
@@ -119,12 +130,35 @@ function initCytoscape() {
     }
   });
 
+  // Change 10: hover tooltip
+  cy.on('mouseover', 'node', function(e) {
+    const node    = e.target;
+    const tooltip = document.getElementById('node-tooltip');
+    const label   = node.data('label');
+    const name    = node.data('displayName');
+    const icon    = getNodeIcon(label);
+    tooltip.innerHTML =
+      `${icon} <strong style="color:#e8eaf0">${name}</strong><br>` +
+      `<span style="color:#6b7280;font-size:10px">${label}</span>`;
+    tooltip.style.display = 'block';
+  });
+
+  cy.on('mousemove', 'node', function(e) {
+    const tooltip = document.getElementById('node-tooltip');
+    tooltip.style.left = (e.originalEvent.clientX + 14) + 'px';
+    tooltip.style.top  = (e.originalEvent.clientY - 32) + 'px';
+  });
+
+  cy.on('mouseout', 'node', function() {
+    document.getElementById('node-tooltip').style.display = 'none';
+  });
+
   return cy;
 }
 
-// ─── Load Full Graph ──────────────────────────────────────────────────────────
+// ─── Load Full Graph (Change 12: fade-in + header stats) ─────────────────────
 async function loadGraph() {
-  showGraphLoading('Loading graph data...');
+  showGraphLoading('Loading graph...');
   try {
     const data = await fetchGraph();
     currentGraphData = data;
@@ -132,21 +166,34 @@ async function loadGraph() {
     const elements = buildElements(data);
     cy.add(elements);
 
-    // Improvement 3: exact cose settings for initial load
+    // Improvement 3: precise cose layout settings
     cy.layout({
-      name: 'cose',
-      animate: true,
+      name:             'cose',
+      animate:          true,
       animationDuration: 500,
-      nodeRepulsion: 400000,
-      idealEdgeLength: 100,
-      gravity: 80,
-      numIter: 1000,
-      initialTemp: 200,
-      coolingFactor: 0.95,
-      minTemp: 1.0,
-      fit: true,
-      padding: 40,
+      nodeRepulsion:    400000,
+      idealEdgeLength:  100,
+      gravity:          80,
+      numIter:          1000,
+      initialTemp:      200,
+      coolingFactor:    0.95,
+      minTemp:          1.0,
+      fit:              true,
+      padding:          50,
     }).run();
+
+    // Change 12: fade in canvas after layout
+    cy.ready(function() {
+      setTimeout(() => {
+        document.getElementById('cy').style.opacity = '1';
+      }, 120);
+    });
+
+    // Change 4: populate header stats
+    const nodeCount = cy.nodes().length;
+    const edgeCount = cy.edges().length;
+    const statsEl   = document.getElementById('header-stats');
+    if (statsEl) statsEl.textContent = `${nodeCount} nodes · ${edgeCount} edges`;
 
     updateCounts();
     hideGraphLoading();
@@ -154,100 +201,100 @@ async function loadGraph() {
   } catch (err) {
     console.error('[GraphIQ] loadGraph error:', err);
     hideGraphLoading();
-    showGraphError('Failed to load graph. Is the backend running at port 8000?');
+    showGraphError('Cannot reach backend at port 8000.');
     updateStatus(false);
   }
 }
 
-// ─── Build Cytoscape Elements ─────────────────────────────────────────────────
+// ─── Build elements ───────────────────────────────────────────────────────────
 function buildElements(data) {
   const nodes = (data.nodes || []).map(n => ({
     group: 'nodes',
     data: {
-      id: n.data.id,
-      label: n.data.label,
-      displayName: truncateText(n.data.displayName || n.data.id, 18),
-      color: n.data.color || getNodeColor(n.data.label),
-      properties: n.data.properties || {},
+      id:          n.data.id,
+      label:       n.data.label,
+      displayName: truncateText(n.data.displayName || n.data.id, 16),
+      color:       n.data.color || getNodeColor(n.data.label),
+      properties:  n.data.properties || {},
     }
   }));
 
   const edges = (data.edges || []).map(e => ({
     group: 'edges',
     data: {
-      id: e.data.id || `${e.data.source}-${e.data.target}-${e.data.label}`,
+      id:     e.data.id || `${e.data.source}-${e.data.target}-${e.data.label}`,
       source: e.data.source,
       target: e.data.target,
-      label: e.data.label || '',
+      label:  e.data.label || '',
     }
   }));
 
   return [...nodes, ...edges];
 }
 
-// ─── Node Click → Detail Panel ────────────────────────────────────────────────
+// ─── Node click → inspector panel (Change 7 structure) ───────────────────────
 function onNodeClick(evt) {
   const node = evt.target;
   selectedNodeId = node.id();
 
-  // Focus mode: highlight clicked + neighbors, fade rest
+  // Focus mode
   cy.elements().removeClass('focused highlighted dimmed faded');
   node.addClass('focused');
   const neighbors = node.neighborhood();
   neighbors.nodes().addClass('highlighted');
   cy.elements().not(node).not(neighbors).addClass('faded');
-  neighbors.edges().style({ 'opacity': 1 });
 
-  // Populate detail panel
+  // Populate inspector (Change 7 new element IDs)
   const props = node.data('properties') || {};
   const label = node.data('label') || 'Node';
   const icon  = getNodeIcon(label);
   const color = getNodeColor(label);
+  const rawId = node.id();
+  const shortId = rawId.length > 16 ? '#' + rawId.slice(-10) : '#' + rawId;
 
-  document.getElementById('node-detail-title').innerHTML =
-    `<span style="color:${color}">${icon} ${label}</span>`;
+  const iconEl  = document.getElementById('node-detail-icon');
+  const labelEl = document.getElementById('node-detail-label');
+  const idEl    = document.getElementById('node-detail-id');
+  if (iconEl)  iconEl.textContent  = icon;
+  if (labelEl) { labelEl.textContent = label; labelEl.style.color = color; }
+  if (idEl)    idEl.textContent    = shortId;
+
   document.getElementById('node-detail-body').innerHTML = formatProperties(props);
 
   const panel = document.getElementById('node-detail-panel');
   panel.classList.remove('hidden');
-  panel.classList.add('slide-up');
 }
 
 function closeNodeDetail() {
-  const panel = document.getElementById('node-detail-panel');
-  panel.classList.add('hidden');
-  panel.classList.remove('slide-up');
+  document.getElementById('node-detail-panel').classList.add('hidden');
   selectedNodeId = null;
 }
 
-// ─── Expand Node (Improvement 3: preset layout, no full re-run) ───────────────
+// ─── Expand Node (Improvement 3: preset layout near parent) ──────────────────
 async function expandSelectedNode() {
   if (!selectedNodeId) return;
   const btn = document.getElementById('btn-expand-node');
   btn.disabled = true;
-  btn.innerHTML = '<span>⏳ Loading...</span>';
+  btn.textContent = '⏳ Loading...';
 
   try {
-    const data = await fetchNode(selectedNodeId);
+    const data        = await fetchNode(selectedNodeId);
     const existingIds = new Set(cy.elements().map(el => el.id()));
+    const parentNode  = cy.getElementById(selectedNodeId);
+    const parentPos   = parentNode.position();
     const newElements = [];
-
-    // Get parent position to place new nodes nearby
-    const parentNode = cy.getElementById(selectedNodeId);
-    const parentPos  = parentNode.position();
 
     (data.nodes || []).forEach(n => {
       if (!existingIds.has(n.data.id)) {
         newElements.push({
           group: 'nodes',
           data: {
-            id: n.data.id,
-            label: n.data.label,
-            displayName: truncateText(n.data.displayName || n.data.id, 18),
-            color: n.data.color || getNodeColor(n.data.label),
-            properties: n.data.properties || {},
+            id:          n.data.id,
+            label:       n.data.label,
+            displayName: truncateText(n.data.displayName || n.data.id, 16),
+            color:       n.data.color || getNodeColor(n.data.label),
+            properties:  n.data.properties || {},
           },
-          // Preset position near parent
           position: {
             x: parentPos.x + (Math.random() * 120 - 60),
             y: parentPos.y + (Math.random() * 120 - 60),
@@ -260,86 +307,32 @@ async function expandSelectedNode() {
     (data.edges || []).forEach(e => {
       const edgeId = e.data.id || `${e.data.source}-${e.data.target}-${e.data.label}`;
       if (!existingIds.has(edgeId)) {
-        newElements.push({
-          group: 'edges',
-          data: {
-            id: edgeId,
-            source: e.data.source,
-            target: e.data.target,
-            label: e.data.label || '',
-          }
-        });
+        newElements.push({ group: 'edges', data: { id: edgeId, source: e.data.source, target: e.data.target, label: e.data.label || '' } });
       }
     });
 
     if (newElements.length > 0) {
       const added = cy.add(newElements);
-      // Animate new nodes fading in — no full layout re-run
-      added.nodes().animate({ style: { opacity: 1 } }, { duration: 400 });
+      added.nodes().animate({ style: { opacity: 1 } }, { duration: 350 });
       updateCounts();
+
+      // Update header stats too
+      const statsEl = document.getElementById('header-stats');
+      if (statsEl) statsEl.textContent = `${cy.nodes().length} nodes · ${cy.edges().length} edges`;
     }
   } catch (err) {
     console.error('[GraphIQ] expandNode error:', err);
   }
 
   btn.disabled = false;
-  btn.innerHTML = '<span>🔗 Expand Neighbors</span>';
+  btn.textContent = '◈ Expand Neighbors';
 }
 
-// ─── Highlight Nodes from Chat (Improvement 2: property-value matching) ───────
+// ─── Highlight from Chat (Improvement 2: property-value matching) ─────────────
 function highlightNodesFromChat(rawResults) {
   if (!cy || !rawResults || rawResults.length === 0) return;
   resetAllHighlights();
 
-  // Collect all string/number values from every result row
-  const allValues = [];
-  rawResults.forEach(result => {
-    if (typeof result === 'object' && result !== null) {
-      Object.values(result).forEach(val => {
-        if (val !== null && val !== undefined) {
-          allValues.push(String(val));
-        }
-      });
-    }
-  });
-
-  // Match against node IDs AND node property values
-  const matchedNodes = cy.nodes().filter(node => {
-    const nodeId = node.data('id');
-    const props  = node.data('properties') || {};
-    return allValues.some(val =>
-      nodeId === val ||
-      nodeId.includes(val) ||
-      Object.values(props).some(p => String(p) === val)
-    );
-  });
-
-  if (matchedNodes.length === 0) return;
-
-  // Dim all, then highlight matches
-  cy.nodes().addClass('dimmed');
-  cy.edges().addClass('dimmed');
-
-  matchedNodes.forEach(node => {
-    node.removeClass('dimmed');
-    node.addClass('highlighted');
-    node.connectedEdges().removeClass('dimmed');
-  });
-
-  // Smooth zoom to matched nodes
-  cy.animate({
-    fit: { eles: matchedNodes, padding: 80 },
-    duration: 600,
-    easing: 'ease-in-out-cubic',
-  });
-}
-
-// ─── Multi-hop Path Highlighting (Improvement 7) ──────────────────────────────
-function highlightPath(rawResults) {
-  if (!cy) return;
-  resetAllHighlights();
-
-  // Collect all values to find matching nodes
   const allValues = [];
   rawResults.forEach(result => {
     if (typeof result === 'object' && result !== null) {
@@ -359,47 +352,60 @@ function highlightPath(rawResults) {
     );
   });
 
-  if (matchedNodes.length < 2) {
-    // Fall back to plain highlight if not enough nodes for a path
-    highlightNodesFromChat(rawResults);
-    return;
-  }
+  if (matchedNodes.length === 0) return;
 
-  // Find shortest paths between consecutive matched nodes via Dijkstra
+  cy.nodes().addClass('dimmed');
+  cy.edges().addClass('dimmed');
+  matchedNodes.forEach(node => {
+    node.removeClass('dimmed').addClass('highlighted');
+    node.connectedEdges().removeClass('dimmed');
+  });
+
+  cy.animate({ fit: { eles: matchedNodes, padding: 80 }, duration: 600, easing: 'ease-in-out-cubic' });
+}
+
+// ─── Path Highlight (Improvement 7) ──────────────────────────────────────────
+function highlightPath(rawResults) {
+  if (!cy) return;
+  resetAllHighlights();
+
+  const allValues = [];
+  rawResults.forEach(result => {
+    if (typeof result === 'object' && result !== null) {
+      Object.values(result).forEach(val => {
+        if (val !== null && val !== undefined) allValues.push(String(val));
+      });
+    }
+  });
+
+  const matchedNodes = cy.nodes().filter(node => {
+    const nodeId = node.data('id');
+    const props  = node.data('properties') || {};
+    return allValues.some(val =>
+      nodeId === val || nodeId.includes(val) ||
+      Object.values(props).some(p => String(p) === val)
+    );
+  });
+
+  if (matchedNodes.length < 2) { highlightNodesFromChat(rawResults); return; }
+
   let pathCollection = cy.collection();
   for (let i = 0; i < matchedNodes.length - 1; i++) {
     try {
-      const dijkstra = cy.elements().dijkstra({
-        root: matchedNodes[i],
-        directed: true,
-      });
-      const path = dijkstra.pathTo(matchedNodes[i + 1]);
-      if (path && path.length > 0) {
-        pathCollection = pathCollection.union(path);
-      }
-    } catch (e) {
-      // No path found; skip quietly
-    }
+      const dijkstra = cy.elements().dijkstra({ root: matchedNodes[i], directed: true });
+      const path     = dijkstra.pathTo(matchedNodes[i + 1]);
+      if (path && path.length > 0) pathCollection = pathCollection.union(path);
+    } catch (e) { /* no path */ }
   }
 
-  // Dim everything, highlight full path
   cy.nodes().addClass('dimmed');
   cy.edges().addClass('dimmed');
 
-  if (pathCollection.length > 0) {
-    pathCollection.removeClass('dimmed');
-    pathCollection.nodes().addClass('highlighted');
-  } else {
-    // Fallback if Dijkstra produced nothing
-    matchedNodes.forEach(n => { n.removeClass('dimmed'); n.addClass('highlighted'); });
-  }
+  const toHighlight = pathCollection.length > 0 ? pathCollection : matchedNodes;
+  toHighlight.removeClass('dimmed');
+  toHighlight.nodes().addClass('highlighted');
 
-  const highlightedEles = pathCollection.length > 0 ? pathCollection : matchedNodes;
-  cy.animate({
-    fit: { eles: highlightedEles, padding: 60 },
-    duration: 600,
-    easing: 'ease-in-out-cubic',
-  });
+  cy.animate({ fit: { eles: toHighlight, padding: 60 }, duration: 600, easing: 'ease-in-out-cubic' });
 }
 
 function resetAllHighlights() {
@@ -411,27 +417,27 @@ function resetAllHighlights() {
 // ─── Graph Controls ───────────────────────────────────────────────────────────
 function initGraphControls() {
   document.getElementById('btn-fit').addEventListener('click', () => {
-    cy.animate({ fit: { padding: 40 }, duration: 400 });
+    cy.animate({ fit: { padding: 50 }, duration: 400 });
   });
 
   document.getElementById('btn-reset').addEventListener('click', async () => {
     resetAllHighlights();
     closeNodeDetail();
     cy.elements().remove();
+    document.getElementById('cy').style.opacity = '0';
     await loadGraph();
   });
 
   document.getElementById('btn-zoom-in').addEventListener('click', () => {
-    cy.animate({ zoom: cy.zoom() * 1.3, center: { eles: cy.elements() } }, { duration: 250 });
+    cy.animate({ zoom: cy.zoom() * 1.3, center: { eles: cy.elements() } }, { duration: 220 });
   });
 
   document.getElementById('btn-zoom-out').addEventListener('click', () => {
-    cy.animate({ zoom: cy.zoom() * 0.75, center: { eles: cy.elements() } }, { duration: 250 });
+    cy.animate({ zoom: cy.zoom() * 0.75, center: { eles: cy.elements() } }, { duration: 220 });
   });
 
   document.getElementById('node-detail-close').addEventListener('click', () => {
-    resetAllHighlights();
-    closeNodeDetail();
+    resetAllHighlights(); closeNodeDetail();
   });
 
   document.getElementById('btn-expand-node').addEventListener('click', expandSelectedNode);
@@ -454,10 +460,11 @@ function hideGraphLoading() {
 }
 
 function showGraphError(msg) {
-  const el = document.getElementById('graph-loading');
-  el.style.display = 'flex';
+  const el  = document.getElementById('graph-loading');
+  const spinner = el.querySelector('.graph-spinner');
+  if (spinner) spinner.style.display = 'none';
   document.getElementById('graph-loading-text').textContent = msg;
-  el.querySelector('.graph-spinner').style.display = 'none';
+  el.style.display = 'flex';
 }
 
 function updateStatus(connected) {
