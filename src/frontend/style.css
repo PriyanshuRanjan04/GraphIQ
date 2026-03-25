@@ -444,8 +444,77 @@ button { font-family: var(--font); cursor: pointer; }
 .bot-bubble  { background: var(--bg-card); border: none; border-left: 2px solid var(--accent-border); border-radius: 0 var(--radius) var(--radius) 0; color: var(--text-primary); }
 .user-bubble { background: rgba(74,144,217,0.15); border: none; border-radius: var(--radius) var(--radius) 2px var(--radius); color: var(--text-primary); max-width: 85%; }
 
-.answer-text  { line-height: 1.6; white-space: pre-wrap; }
-.result-count { margin-top: 6px; font-size: var(--text-xs); color: var(--text-muted); }
+/* ── Answer visual hierarchy ── */
+.answer-summary {
+  font-size: var(--text-base); font-weight: 600;
+  color: rgba(255,255,255,0.95); line-height: 1.5;
+  margin-bottom: 6px;
+}
+.answer-body {
+  font-size: var(--text-sm); color: rgba(255,255,255,0.65);
+  line-height: 1.65; margin-top: 4px; white-space: pre-wrap;
+}
+.result-count { margin-top: 8px; font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ── Answer list (bullet + limiting) ── */
+.answer-list { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.answer-list-item {
+  font-size: var(--text-sm); color: rgba(255,255,255,0.75); line-height: 1.55;
+  padding: 4px 8px; border-radius: var(--radius-sm);
+  border-left: 2px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+  transition: background 0.15s;
+}
+.answer-list-item:hover { background: rgba(255,255,255,0.04); }
+
+/* Expand / collapse row */
+.list-expand-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.05);
+}
+.list-count-label { font-size: 10px; color: var(--text-muted); }
+.btn-expand-list {
+  background: none; border: none; font-size: 10px;
+  color: var(--accent); cursor: pointer; padding: 2px 4px;
+  transition: color 0.15s; font-family: var(--font);
+}
+.btn-expand-list:hover { color: #6aaee8; }
+
+/* ── Clickable entity IDs ── */
+.chat-id-link {
+  display: inline-flex; align-items: center;
+  background: rgba(74,144,217,0.10); border: 1px solid rgba(74,144,217,0.22);
+  border-radius: 4px; padding: 1px 5px;
+  color: var(--accent); font-size: 11px; font-family: monospace;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.chat-id-link:hover {
+  background: rgba(74,144,217,0.22); border-color: rgba(74,144,217,0.50);
+  color: #7fb8ec; transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(74,144,217,0.25);
+}
+
+/* ── Follow-up suggestion chips ── */
+.followup-row {
+  margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.followup-label {
+  display: block; font-size: 9px; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.08em; margin-bottom: 6px;
+}
+.followup-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.followup-chip {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px; color: rgba(255,255,255,0.55);
+  font-size: 11px; padding: 3px 10px; cursor: pointer;
+  transition: all 0.15s; font-family: var(--font); white-space: nowrap;
+}
+.followup-chip:hover {
+  border-color: rgba(74,144,217,0.40); color: var(--accent);
+  background: rgba(74,144,217,0.08);
+}
 
 .guardrail-warning {
   background: rgba(245,166,35,0.08); border: 1px solid #F5A623; border-left: 3px solid #F5A623;
