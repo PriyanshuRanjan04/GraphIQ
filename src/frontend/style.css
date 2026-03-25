@@ -81,7 +81,45 @@ button { font-family: var(--font); cursor: pointer; }
   padding: 0 16px; gap: 12px; position: relative; z-index: 90;
 }
 .breadcrumb-left  { display: flex; align-items: center; gap: 8px; }
-.breadcrumb-right { flex: 1; }
+.breadcrumb-right {
+  flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+}
+
+/* Search bar */
+.search-wrapper {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
+  border-radius: var(--radius-sm); padding: 4px 10px;
+  transition: border-color 0.2s;
+}
+.search-wrapper:focus-within {
+  border-color: rgba(74,144,217,0.45); background: rgba(74,144,217,0.06);
+}
+.search-icon { color: rgba(255,255,255,0.35); flex-shrink: 0; }
+#graph-search-input {
+  width: 140px; background: none; border: none; outline: none;
+  color: var(--text-primary); font-size: var(--text-sm); font-family: var(--font);
+}
+#graph-search-input::placeholder { color: var(--text-muted); }
+#graph-search-clear {
+  background: none; border: none; color: rgba(255,255,255,0.35);
+  font-size: 14px; line-height: 1; border-radius: 3px; padding: 0 2px;
+  cursor: pointer; display: flex; align-items: center; transition: color 0.15s;
+}
+#graph-search-clear:hover { color: var(--text-primary); }
+
+/* Focus Mode toggle button */
+.btn-focus-mode {
+  display: flex; align-items: center; gap: 5px; padding: 5px 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10);
+  border-radius: var(--radius-sm); color: rgba(255,255,255,0.5);
+  font-size: var(--text-sm); transition: all 0.15s ease; white-space: nowrap;
+}
+.btn-focus-mode:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+.btn-focus-mode.active {
+  background: rgba(74,144,217,0.12); border-color: rgba(74,144,217,0.35);
+  color: var(--accent);
+}
 .btn-minimize, .btn-overlay {
   display: flex; align-items: center; gap: 6px; padding: 5px 10px;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
@@ -238,12 +276,18 @@ button { font-family: var(--font); cursor: pointer; }
 #node-tooltip {
   display: none; position: fixed;
   background: var(--bg-card); border: 1px solid var(--border-md);
-  border-radius: var(--radius-sm); padding: 6px 10px;
+  border-radius: var(--radius-sm); padding: 8px 12px;
   font-size: var(--text-xs); color: var(--text-primary);
   pointer-events: none; z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  line-height: 1.5; white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  line-height: 1.5; white-space: nowrap; min-width: 120px;
 }
+.tt-header { font-size: var(--text-sm); font-weight: 600; color: #e8eaf0; margin-bottom: 3px; }
+.tt-type   { font-size: 10px; color: var(--text-muted); margin-bottom: 5px; }
+.tt-id     { color: rgba(255,255,255,0.35); font-family: monospace; font-size: 10px; }
+.tt-props  { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border); padding-top: 5px; margin-top: 3px; }
+.tt-prop   { font-size: 10px; color: rgba(255,255,255,0.65); }
+.tt-key    { color: rgba(255,255,255,0.35); }
 
 /* ══════════════════════════════════════════════════════════════
    NODE DETAIL INSPECTOR PANEL

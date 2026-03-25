@@ -60,7 +60,17 @@
       <span class="breadcrumb-sep">/</span>
       <span class="breadcrumb-item active">Order to Cash</span>
     </div>
-    <div class="breadcrumb-right"></div>
+    <div class="breadcrumb-right">
+      <div class="search-wrapper">
+        <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none">
+          <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+          <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <input id="graph-search-input" type="text" placeholder="Search nodes..." autocomplete="off" />
+        <button id="graph-search-clear" style="display:none" title="Clear search">×</button>
+      </div>
+      <button class="btn-focus-mode" id="btn-focus-mode">○ Focus Mode</button>
+    </div>
   </div>
 
   <!-- ══ MAIN LAYOUT ═════════════════════════════════════════════ -->

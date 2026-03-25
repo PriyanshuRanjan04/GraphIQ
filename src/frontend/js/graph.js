@@ -1,21 +1,23 @@
-// GraphIQ - graph.js  v2.1 — Phase 5 Polish
-// Changes from v2.0:
-//  #1  Much higher node repulsion + longer ideal edges → open layout
-//  #2  Plant node positional treatment improved (lower repulsion, gravity bias)
-//  #3  "Expand Neighbors" → "Focus Connections" (local focus, no API call)
-//  #4  Truly robust reset (clears classes + inline styles, re-fits)
-//  #5  cy.resize() before every fit/zoom animate
-//  #6  Legend, node click, chat highlight all cooperate with reset
+// GraphIQ - graph.js  v3.0 — Phase 5 UI Enhancement
+// New in v3.0:
+//  ① Smart zoom-based label visibility (hide when zoomed out, show when in)
+//  ② Stronger hover dim — soft highlight connected edges, dim rest
+//  ③ Strong click focus — heavy dim, zoom toward selection
+//  ④ Richer tooltip — type + ID + 2 key properties
+//  ⑤ Search bar — find node by ID/name, zoom+highlight+detail
+//  ⑥ Focus Mode toggle — persistent background dim
+//  ⑦ Reduced edge noise — 0.04 default opacity
+//  ⑧ Chat → graph zoom-to-match (stronger)
 
-// ─── State ────────────────────────────────────────────────────────────────────
-let cy                = null;
-let selectedNodeId    = null;
-let overlayVisible    = true;
-let activeLegendFilter = null;
-let focusModeActive   = false;   // true while Focus Connections is in effect
+// ─── Constants ────────────────────────────────────────────────────────────────
+const LABEL_ZOOM_THRESHOLDS = {
+  HIDE:   0.25,   // below this → no labels at all
+  MEDIUM: 0.55,   // between HIDE and MEDIUM → only Customer labels
+  FULL:   0.90,   // above this → all labels
+};
 
 const PRIORITY_PROPS = {
-  Customer:        ['fullName','id','grouping','isBlocked','isArchived','category'],
+  Customer:        ['fullName','id','grouping','isBlocked'],
   SalesOrder:      ['id','totalAmount','currency','deliveryStatus','billingStatus','creationDate'],
   Delivery:        ['id','shippingPoint','goodsMovementStatus','actualGoodsMovementDate','pickingStatus','creationDate'],
   BillingDocument: ['id','totalAmount','currency','isCancelled','soldToParty','accountingDocument'],
@@ -24,14 +26,36 @@ const PRIORITY_PROPS = {
   Product:         ['id','productType','baseUnit','productGroup','grossWeight'],
   Plant:           ['id','name','companyCode','country','region'],
 };
+
+// 2 properties for rich tooltip per type
+const TOOLTIP_PROPS = {
+  Customer:        ['fullName','grouping'],
+  SalesOrder:      ['totalAmount','currency'],
+  Delivery:        ['shippingPoint','goodsMovementStatus'],
+  BillingDocument: ['totalAmount','isCancelled'],
+  Payment:         ['amount','currency'],
+  JournalEntry:    ['amount','postingDate'],
+  Product:         ['productType','baseUnit'],
+  Plant:           ['name','companyCode'],
+};
+
 const MAX_PROPS = 6;
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let cy                 = null;
+let selectedNodeId     = null;
+let overlayVisible     = true;
+let activeLegendFilter = null;
+let focusModeActive    = false;   // Focus Connections button state
+let globalFocusMode    = false;   // Background dim toggle
+let hoveredNodeId      = null;
 
 // ─── Initialize Cytoscape ─────────────────────────────────────────────────────
 function initCytoscape() {
   cy = cytoscape({
     container: document.getElementById('cy'),
     style: buildCyStyle(),
-    layout: { name: 'preset' },
+    layout:  { name: 'preset' },
     minZoom: 0.03,
     maxZoom: 6,
   });
@@ -41,33 +65,45 @@ function initCytoscape() {
     if (evt.target === cy) { resetAllHighlights(); closeNodeDetail(); }
   });
 
-  // Hover tooltip
+  // ── Hover: soft glow + edge highlight + dim rest ──────────────────────
   cy.on('mouseover', 'node', function(e) {
-    const node    = e.target;
-    const tooltip = document.getElementById('node-tooltip');
-    tooltip.innerHTML =
-      `${getNodeIcon(node.data('label'))} <strong style="color:#e8eaf0">${node.data('displayName')}</strong><br>` +
-      `<span style="color:#6b7280;font-size:10px">${node.data('label')}</span>`;
-    tooltip.style.display = 'block';
+    const node = e.target;
+    hoveredNodeId = node.id();
+
+    // Rich tooltip
+    showRichTooltip(node);
+
+    // Hover dim: if nothing is currently focused
+    if (!selectedNodeId && !focusModeActive) {
+      const connected = node.neighborhood();
+      cy.elements().not(node).not(connected).addClass('hover-dim');
+      node.connectedEdges().addClass('hover-edge');
+    }
   });
   cy.on('mousemove', 'node', function(e) {
     const t = document.getElementById('node-tooltip');
-    t.style.left = (e.originalEvent.clientX + 14) + 'px';
-    t.style.top  = (e.originalEvent.clientY - 32) + 'px';
+    t.style.left = (e.originalEvent.clientX + 16) + 'px';
+    t.style.top  = (e.originalEvent.clientY - 10) + 'px';
   });
   cy.on('mouseout', 'node', function() {
+    hoveredNodeId = null;
     document.getElementById('node-tooltip').style.display = 'none';
+    if (!selectedNodeId && !focusModeActive) {
+      cy.elements().removeClass('hover-dim hover-edge');
+    }
   });
 
+  // ── Zoom: smart label visibility ──────────────────────────────────────
   cy.on('zoom', function() {
     const el = document.getElementById('zoom-level');
     if (el) el.textContent = Math.round(cy.zoom() * 100) + '%';
+    updateLabelVisibility();
   });
 
   return cy;
 }
 
-// ─── Cytoscape Style Definition ──────────────────────────────────────────────
+// ─── Cytoscape Style Definition ───────────────────────────────────────────────
 function buildCyStyle() {
   return [
     // ─ Base node
@@ -76,7 +112,7 @@ function buildCyStyle() {
       style: {
         'background-color':    'data(color)',
         'label':               'data(displayName)',
-        'color':               'rgba(255,255,255,0.60)',
+        'color':               'rgba(255,255,255,0.55)',
         'font-size':           '8px',
         'font-family':         'Inter, system-ui, sans-serif',
         'text-valign':         'bottom',
@@ -86,57 +122,75 @@ function buildCyStyle() {
         'text-outline-width':   1.5,
         'text-max-width':      '60px',
         'text-wrap':           'ellipsis',
-        'width':                22,
-        'height':               22,
+        'width':                20,
+        'height':               20,
         'border-width':         0,
         'z-index':              1,
       }
     },
-    // ─ Plant: visually demoted — smaller, more transparent
+    // ─ Plant: visually demoted
     {
       selector: 'node[label="Plant"]',
       style: {
-        'width':     13,
-        'height':    13,
-        'opacity':   0.45,
+        'width':     12,
+        'height':    12,
+        'opacity':   0.40,
         'font-size': '7px',
-        'color':     'rgba(255,255,255,0.28)',
+        'color':     'rgba(255,255,255,0.25)',
       }
     },
-    // ─ Customer: larger, prominent
+    // ─ Customer: largest, most prominent
     {
       selector: 'node[label="Customer"]',
       style: {
-        'width':       30,
-        'height':      30,
+        'width':       28,
+        'height':      28,
         'font-size':   '9px',
         'font-weight': '600',
-        'color':       '#e8eaf0',
+        'color':       '#dde0e8',
       }
     },
-    // ─ BillingDocument — medium prominent
+    // ─ BillingDocument — medium
     {
       selector: 'node[label="BillingDocument"]',
-      style: {
-        'width':   26,
-        'height':  26,
-      }
+      style: { 'width': 24, 'height': 24 }
     },
-    // ─ Edges — very quiet, no label
+    // ─ Edges — very quiet by default (#7: reduced noise)
     {
       selector: 'edge',
       style: {
-        'width':              0.6,
-        'line-color':         'rgba(255,255,255,0.06)',
-        'target-arrow-color': 'rgba(255,255,255,0.08)',
+        'width':              0.5,
+        'line-color':         'rgba(255,255,255,0.04)',
+        'target-arrow-color': 'rgba(255,255,255,0.06)',
         'target-arrow-shape': 'triangle',
-        'arrow-scale':        0.5,
+        'arrow-scale':        0.45,
         'curve-style':        'bezier',
         'label':              '',
-        'opacity':            0.5,
+        'opacity':            1,
       }
     },
-    // ─ Highlighted (chat / legend focus selected nodes)
+    // ─ Hover dim (non-neighbors when hovering)
+    {
+      selector: 'node.hover-dim',
+      style: {
+        'opacity':             0.12,
+        'transition-property': 'opacity',
+        'transition-duration': '0.2s',
+      }
+    },
+    // ─ Hover edge (directly connected edges) — glow up
+    {
+      selector: 'edge.hover-edge',
+      style: {
+        'width':              1.5,
+        'line-color':         'rgba(255,255,255,0.30)',
+        'target-arrow-color': 'rgba(255,255,255,0.35)',
+        'opacity':            1,
+        'transition-property': 'width, line-color, opacity',
+        'transition-duration': '0.2s',
+      }
+    },
+    // ─ Highlighted (chat result / search result)
     {
       selector: 'node.highlighted',
       style: {
@@ -151,11 +205,26 @@ function buildCyStyle() {
         'transition-duration': '0.25s',
       }
     },
-    // ─ Dimmed (not in focus)
+    // ─ Search result highlight (slightly different colour)
+    {
+      selector: 'node.search-match',
+      style: {
+        'border-width':        3,
+        'border-color':        '#4A90D9',
+        'border-opacity':      1,
+        'width':               34,
+        'height':              34,
+        'opacity':             1,
+        'z-index':             1001,
+        'transition-property': 'border-width, width, height, opacity',
+        'transition-duration': '0.2s',
+      }
+    },
+    // ─ Dimmed (heavy — for click/chat/legend dim)
     {
       selector: 'node.dimmed',
       style: {
-        'opacity':             0.06,
+        'opacity':             0.05,
         'transition-property': 'opacity',
         'transition-duration': '0.25s',
       }
@@ -163,24 +232,33 @@ function buildCyStyle() {
     {
       selector: 'edge.dimmed',
       style: {
-        'opacity':             0.03,
+        'opacity':             0.02,
         'transition-property': 'opacity',
         'transition-duration': '0.25s',
       }
     },
-    // ─ Focused node (selected via click)
+    // ─ Focus Mode background dim (Global Focus Mode #6)
+    {
+      selector: 'node.bg-dim',
+      style: {
+        'opacity':             0.10,
+        'transition-property': 'opacity',
+        'transition-duration': '0.3s',
+      }
+    },
+    // ─ Focused node (click)
     {
       selector: 'node.focused',
       style: {
         'border-width':   3,
         'border-color':   '#ffffff',
         'border-opacity':  1,
-        'width':           36,
-        'height':          36,
+        'width':           34,
+        'height':          34,
         'z-index':         1000,
       }
     },
-    // ─ Neighbors in focus mode
+    // ─ Neighbor in click-focus mode
     {
       selector: 'node.neighbor-focus',
       style: {
@@ -193,16 +271,24 @@ function buildCyStyle() {
         'transition-duration': '0.2s',
       }
     },
-    // ─ Faded (secondary dim on node click)
+    // ─ Faded (light dim for non-neighbors on click)
     {
       selector: 'node.faded',
       style: {
-        'opacity':             0.15,
+        'opacity':             0.12,
         'transition-property': 'opacity',
         'transition-duration': '0.25s',
       }
     },
-    // ─ Legend filter — matching
+    {
+      selector: 'edge.faded',
+      style: {
+        'opacity':             0.03,
+        'transition-property': 'opacity',
+        'transition-duration': '0.25s',
+      }
+    },
+    // ─ Legend filter
     {
       selector: 'node.legend-match',
       style: {
@@ -223,9 +309,63 @@ function buildCyStyle() {
         'transition-duration': '0.2s',
       }
     },
-    // ─ New added node (for animate-in)
     { selector: 'node.new-node', style: { 'opacity': 0 } },
   ];
+}
+
+// ─── Smart Label Visibility (#1) ──────────────────────────────────────────────
+// Called on every zoom event. Adjusts which nodes show labels.
+function updateLabelVisibility() {
+  if (!cy) return;
+  const z = cy.zoom();
+
+  if (z < LABEL_ZOOM_THRESHOLDS.HIDE) {
+    // Completely zoomed out — hide all labels
+    cy.nodes().style({ 'label': '' });
+  } else if (z < LABEL_ZOOM_THRESHOLDS.MEDIUM) {
+    // Low zoom — only show Customer labels
+    cy.nodes().style({ 'label': '' });
+    cy.nodes('[label="Customer"]').style({ 'label': 'data(displayName)' });
+  } else if (z < LABEL_ZOOM_THRESHOLDS.FULL) {
+    // Medium zoom — show non-Plant, non-tiny labels
+    cy.nodes('[label="Plant"]').style({ 'label': '' });
+    cy.nodes().not('[label="Plant"]').style({ 'label': 'data(displayName)' });
+  } else {
+    // Fully zoomed in — show all labels
+    cy.nodes().style({ 'label': 'data(displayName)' });
+  }
+}
+
+// ─── Rich Tooltip (#5) ────────────────────────────────────────────────────────
+function showRichTooltip(node) {
+  const label   = node.data('label') || 'Node';
+  const id      = node.data('id') || '';
+  const props   = node.data('properties') || {};
+  const keys    = TOOLTIP_PROPS[label] || [];
+  const tooltip = document.getElementById('node-tooltip');
+
+  const icon = getNodeIcon(label);
+
+  // Build 1-2 property lines
+  let propLines = '';
+  keys.forEach(k => {
+    const v = props[k];
+    if (v !== undefined && v !== null && v !== '') {
+      const displayKey = k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+      let displayVal = truncateText(String(v), 22);
+      if (['totalAmount','amount'].includes(k)) displayVal = formatCurrency(v);
+      propLines += `<span class="tt-prop"><span class="tt-key">${displayKey}:</span> ${escapeHtml(displayVal)}</span>`;
+    }
+  });
+
+  const shortId = id.length > 18 ? id.slice(0, 18) + '…' : id;
+
+  tooltip.innerHTML = `
+    <div class="tt-header">${icon} <strong>${escapeHtml(node.data('displayName'))}</strong></div>
+    <div class="tt-type">${label} · <span class="tt-id">${escapeHtml(shortId)}</span></div>
+    ${propLines ? `<div class="tt-props">${propLines}</div>` : ''}
+  `;
+  tooltip.style.display = 'block';
 }
 
 // ─── Load Graph ───────────────────────────────────────────────────────────────
@@ -236,54 +376,36 @@ async function loadGraph() {
     const elements = buildElements(data);
     cy.add(elements);
 
-    // ── COSE layout: spread out, low gravity so sparse nodes aren't crushed ──
     const layout = cy.layout({
       name:              'cose',
       animate:           true,
       animationDuration: 700,
-
-      // Per-node repulsion function:
-      // • Plant nodes: lower repulsion → huddle near connected nodes
-      // • All others: very high → spread the graph wide
-      nodeRepulsion: function(node) {
-        return node.data('label') === 'Plant' ? 200000 : 1200000;
+      nodeRepulsion:     n => n.data('label') === 'Plant' ? 200000 : 1200000,
+      idealEdgeLength:   e => {
+        const s = e.source().data('label'), t = e.target().data('label');
+        return (s === 'Plant' || t === 'Plant') ? 80 : 160;
       },
-
-      // Per-edge ideal length: longer = more space
-      idealEdgeLength: function(edge) {
-        // Edges to Plant nodes can be shorter (less aggressive push)
-        const src = edge.source().data('label');
-        const tgt = edge.target().data('label');
-        if (src === 'Plant' || tgt === 'Plant') return 80;
-        return 160;
-      },
-
-      edgeElasticity:   function(edge) { return 0.30; },
-
-      // Lower gravity = nodes spread further; gravityRange > 1 = centrally pulled
-      gravity:          60,
-      gravityRange:     1.8,
-
-      numIter:          1500,
-      initialTemp:      250,
-      coolingFactor:    0.97,
-      minTemp:          1.0,
-      componentSpacing: 100,   // extra space between disconnected components
-      fit:              true,
-      padding:          60,
-      randomize:        false,
+      edgeElasticity:    () => 0.30,
+      gravity:           60,
+      gravityRange:      1.8,
+      numIter:           1500,
+      initialTemp:       250,
+      coolingFactor:     0.97,
+      minTemp:           1.0,
+      componentSpacing:  100,
+      fit:               true,
+      padding:           60,
+      randomize:         false,
     });
 
     layout.on('layoutstop', function() {
       document.getElementById('cy').style.opacity = '1';
-
-      // Soft-dim Plant nodes with degree ≤ 1 further (isolated-looking plants)
-      cy.nodes('[label="Plant"]').forEach(n => {
-        if (n.degree() <= 1) n.style('opacity', 0.25);
-      });
-
+      applyPlantSoftDim();
       cy.resize();
       cy.fit(null, 60);
+
+      // Initial label visibility based on starting zoom
+      updateLabelVisibility();
 
       const zoomEl = document.getElementById('zoom-level');
       if (zoomEl) zoomEl.textContent = Math.round(cy.zoom() * 100) + '%';
@@ -330,19 +452,33 @@ function buildElements(data) {
   return [...nodes, ...edges];
 }
 
-// ─── Node Click → Detail Panel + light dim ───────────────────────────────────
+// ─── Node Click → Detail + Strong Focus (#2) ─────────────────────────────────
 function onNodeClick(evt) {
   const node = evt.target;
   selectedNodeId = node.id();
   focusModeActive = false;
+  globalFocusMode = false;
 
-  // Clear all existing classes
-  cy.elements().removeClass('focused highlighted dimmed faded neighbor-focus legend-match legend-dim');
+  // Clear all existing states
+  cy.elements().removeClass(
+    'focused highlighted dimmed faded neighbor-focus legend-match legend-dim hover-dim hover-edge bg-dim search-match'
+  );
 
-  // Focus selected; lightly fade non-neighbors
+  // Strong focus: dim non-neighbors heavily
   node.addClass('focused');
   const neighbors = node.neighborhood();
-  cy.elements().not(node).not(neighbors).addClass('faded');
+  const neighborNodes = neighbors.nodes();
+
+  cy.nodes().not(node).not(neighborNodes).addClass('faded');
+  cy.edges().not(node.connectedEdges()).addClass('faded');
+  neighborNodes.addClass('neighbor-focus');
+
+  // Zoom slightly toward selected node (not too aggressive)
+  const pos = node.position();
+  cy.animate({
+    zoom:   Math.max(cy.zoom() * 1.15, 0.5),
+    center: { eles: node },
+  }, { duration: 300, easing: 'ease-out-cubic' });
 
   renderDetailPanel(node);
 }
@@ -371,9 +507,9 @@ function renderDetailPanel(node) {
   shown.forEach(key => {
     const keyLabel = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
     let val = props[key];
-    if (DATE_AUTO.includes(key))   val = formatDate(String(val));
-    else if (AMOUNT_AUTO.includes(key)) val = formatCurrency(val);
-    else val = truncateText(String(val), 28);
+    if (DATE_AUTO.includes(key))         val = formatDate(String(val));
+    else if (AMOUNT_AUTO.includes(key))  val = formatCurrency(val);
+    else                                 val = truncateText(String(val), 28);
     html += `<div class="detail-prop-row">
       <span class="detail-prop-key">${keyLabel}</span>
       <span class="detail-prop-value">${val}</span>
@@ -387,7 +523,6 @@ function renderDetailPanel(node) {
   document.getElementById('detail-connections').textContent = `Connections: ${node.connectedEdges().length}`;
   document.getElementById('node-detail-panel').classList.remove('hidden');
 
-  // Update button text to reflect new behavior
   const focusBtn = document.getElementById('btn-expand-node');
   if (focusBtn) focusBtn.textContent = 'Focus Connections';
 }
@@ -398,72 +533,151 @@ function closeNodeDetail() {
   focusModeActive = false;
 }
 
-// ─── Focus Connections (was "Expand Neighbors") ───────────────────────────────
-// Keeps full graph visible, deeply dims non-neighbors, zooms to local subgraph.
-// Clicking again → "Unfocus" → restores full graph.
+// ─── Focus Connections ────────────────────────────────────────────────────────
 function focusConnections() {
   if (!selectedNodeId || !cy) return;
-
-  const focusBtn = document.getElementById('btn-expand-node');
-  const node     = cy.getElementById(selectedNodeId);
+  const node = cy.getElementById(selectedNodeId);
   if (!node || node.length === 0) return;
+  const focusBtn = document.getElementById('btn-expand-node');
 
   if (focusModeActive) {
-    // Second click: restore full graph view
     focusModeActive = false;
-    cy.elements().removeClass('focused highlighted dimmed faded neighbor-focus legend-match legend-dim');
-    cy.elements().style({ opacity: 1 });
+    cy.elements().removeClass('focused highlighted dimmed faded neighbor-focus hover-dim hover-edge bg-dim search-match');
+    cy.nodes().removeStyle('opacity');
+    cy.edges().removeStyle('opacity');
     applyPlantSoftDim();
-    // Re-add mild focus styling
     node.addClass('focused');
-    const neighbors = node.neighborhood();
-    cy.elements().not(node).not(neighbors).addClass('faded');
-
+    node.neighborhood().nodes().addClass('neighbor-focus');
+    cy.elements().not(node).not(node.neighborhood()).addClass('faded');
     cy.resize();
     cy.animate({ fit: { padding: 60 }, duration: 400 });
     if (focusBtn) focusBtn.textContent = 'Focus Connections';
     return;
   }
 
-  // First click: activate focus mode
   focusModeActive = true;
-
-  const neighbors   = node.neighborhood();
+  const neighbors     = node.neighborhood();
   const neighborNodes = neighbors.nodes();
   const neighborEdges = neighbors.edges();
 
-  // Clear existing classes
-  cy.elements().removeClass('focused highlighted dimmed faded neighbor-focus legend-match legend-dim');
-
-  // Dim everything that isn't the node or its direct neighbors
+  cy.elements().removeClass('focused highlighted dimmed faded neighbor-focus hover-dim hover-edge bg-dim search-match');
   cy.nodes().not(node).not(neighborNodes).addClass('dimmed');
   cy.edges().not(neighborEdges).addClass('dimmed');
-
-  // Emphasize selected + neighbors
   node.addClass('focused');
   neighborNodes.addClass('neighbor-focus');
   neighborEdges.removeClass('dimmed');
 
-  // Build collection to zoom to
   const toFit = cy.collection().union(node).union(neighborNodes);
-
   cy.resize();
   cy.animate({ fit: { eles: toFit, padding: 70 }, duration: 500, easing: 'ease-in-out-cubic' });
-
   if (focusBtn) focusBtn.textContent = 'Unfocus ↩';
 }
 
-// ─── Goal 4: Robust Reset ─────────────────────────────────────────────────────
-// Removes ALL custom classes + inline styles, re-fits full graph.
+// ─── Global Focus Mode Toggle (#6) ────────────────────────────────────────────
+function toggleGlobalFocusMode() {
+  globalFocusMode = !globalFocusMode;
+  const btn = document.getElementById('btn-focus-mode');
+
+  if (globalFocusMode) {
+    // Dim all nodes slightly; edges nearly invisible
+    cy.nodes().not('[label="Customer"]').addClass('bg-dim');
+    cy.edges().style({ 'line-color': 'rgba(255,255,255,0.02)', 'opacity': 0.5 });
+    if (btn) { btn.textContent = '◉ Focus Mode'; btn.classList.add('active'); }
+  } else {
+    cy.nodes().removeClass('bg-dim');
+    cy.nodes().removeStyle('opacity');
+    cy.edges().removeStyle('line-color');
+    cy.edges().removeStyle('opacity');
+    applyPlantSoftDim();
+    if (btn) { btn.textContent = '○ Focus Mode'; btn.classList.remove('active'); }
+  }
+}
+
+// ─── Search (#4) ──────────────────────────────────────────────────────────────
+function initSearch() {
+  const input   = document.getElementById('graph-search-input');
+  const clearBtn = document.getElementById('graph-search-clear');
+  if (!input) return;
+
+  input.addEventListener('input', debounce(onSearchInput, 280));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') onSearchInput();
+    if (e.key === 'Escape') clearSearch();
+  });
+  if (clearBtn) clearBtn.addEventListener('click', clearSearch);
+}
+
+function onSearchInput() {
+  const input = document.getElementById('graph-search-input');
+  const term  = (input ? input.value : '').trim().toLowerCase();
+  const clearBtn = document.getElementById('graph-search-clear');
+
+  if (clearBtn) clearBtn.style.display = term ? 'flex' : 'none';
+
+  if (!term || !cy) { clearSearch(); return; }
+
+  const matched = cy.nodes().filter(node => {
+    const id          = (node.data('id') || '').toLowerCase();
+    const displayName = (node.data('displayName') || '').toLowerCase();
+    const props       = node.data('properties') || {};
+    const fullName    = String(props.fullName || '').toLowerCase();
+    const name        = String(props.name || '').toLowerCase();
+    return id.includes(term) || displayName.includes(term) || fullName.includes(term) || name.includes(term);
+  });
+
+  // Clear all states first
+  cy.elements().removeClass(
+    'focused highlighted dimmed faded neighbor-focus legend-match legend-dim hover-dim hover-edge bg-dim search-match'
+  );
+  cy.nodes().removeStyle('opacity');
+  cy.edges().removeStyle('opacity');
+  applyPlantSoftDim();
+
+  if (matched.length === 0) return;
+
+  // Dim everything, highlight matches
+  cy.nodes().addClass('dimmed');
+  cy.edges().addClass('dimmed');
+  matched.forEach(n => {
+    n.removeClass('dimmed').addClass('search-match');
+    n.connectedEdges().removeClass('dimmed');
+  });
+
+  // Zoom to results
+  cy.resize();
+  cy.animate({ fit: { eles: matched, padding: 80 }, duration: 450, easing: 'ease-in-out-cubic' });
+
+  // If exactly 1 match → also open detail panel
+  if (matched.length === 1) {
+    selectedNodeId = matched[0].id();
+    renderDetailPanel(matched[0]);
+  }
+}
+
+function clearSearch() {
+  const input    = document.getElementById('graph-search-input');
+  const clearBtn = document.getElementById('graph-search-clear');
+  if (input)    input.value = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+
+  cy.elements().removeClass('search-match dimmed');
+  cy.nodes().removeStyle('opacity');
+  cy.edges().removeStyle('opacity');
+  applyPlantSoftDim();
+  cy.resize();
+  cy.animate({ fit: { padding: 60 }, duration: 380 });
+}
+
+// ─── Reset (robust) ───────────────────────────────────────────────────────────
 function resetAllHighlights() {
   if (!cy) return;
-  focusModeActive    = false;
+  focusModeActive = false;
+  globalFocusMode = false;
   activeLegendFilter = null;
 
-  // Remove all class states
-  cy.elements().removeClass('highlighted dimmed focused faded neighbor-focus legend-match legend-dim new-node');
-
-  // Clear inline style overrides (opacity etc.)
+  cy.elements().removeClass(
+    'highlighted dimmed focused faded neighbor-focus legend-match legend-dim hover-dim hover-edge bg-dim new-node search-match'
+  );
   cy.nodes().removeStyle('opacity');
   cy.edges().removeStyle('opacity');
 
@@ -472,10 +686,17 @@ function resetAllHighlights() {
   const resetBtn = document.getElementById('legend-reset-filter');
   if (resetBtn) resetBtn.classList.remove('visible');
 
-  // Re-apply Plant soft-dim (this is the designed default, not a class state)
-  applyPlantSoftDim();
+  // Reset search
+  const searchInput = document.getElementById('graph-search-input');
+  const clearBtn    = document.getElementById('graph-search-clear');
+  if (searchInput) searchInput.value = '';
+  if (clearBtn)    clearBtn.style.display = 'none';
 
-  // Re-fit full graph
+  // Reset focus mode button
+  const focusModeBtn = document.getElementById('btn-focus-mode');
+  if (focusModeBtn) { focusModeBtn.textContent = '○ Focus Mode'; focusModeBtn.classList.remove('active'); }
+
+  applyPlantSoftDim();
   cy.resize();
   cy.animate({ fit: { padding: 60 }, duration: 380 });
 
@@ -483,7 +704,7 @@ function resetAllHighlights() {
   if (zoomEl) zoomEl.textContent = Math.round(cy.zoom() * 100) + '%';
 }
 
-// ─── Goal 2 & 3: Legend Toggle + Type Filter ─────────────────────────────────
+// ─── Legend (#2 & #3) ─────────────────────────────────────────────────────────
 function initLegend() {
   const header   = document.getElementById('legend-header');
   const body     = document.getElementById('legend-body');
@@ -501,19 +722,13 @@ function initLegend() {
     item.addEventListener('click', (e) => {
       e.stopPropagation();
       const nodeType = item.dataset.type;
-      if (activeLegendFilter === nodeType) {
-        clearLegendFilter();
-      } else {
-        applyLegendFilter(nodeType);
-      }
+      if (activeLegendFilter === nodeType) { clearLegendFilter(); }
+      else { applyLegendFilter(nodeType); }
     });
   });
 
   if (resetBtn) {
-    resetBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      clearLegendFilter();
-    });
+    resetBtn.addEventListener('click', (e) => { e.stopPropagation(); clearLegendFilter(); });
   }
 }
 
@@ -521,8 +736,11 @@ function applyLegendFilter(nodeType) {
   if (!cy) return;
   activeLegendFilter = nodeType;
   focusModeActive    = false;
+  globalFocusMode    = false;
 
-  cy.elements().removeClass('highlighted dimmed focused faded neighbor-focus legend-match legend-dim');
+  cy.elements().removeClass(
+    'highlighted dimmed focused faded neighbor-focus legend-match legend-dim hover-dim hover-edge bg-dim search-match'
+  );
   cy.nodes().removeStyle('opacity');
   cy.edges().removeStyle('opacity');
 
@@ -548,22 +766,18 @@ function applyLegendFilter(nodeType) {
 
 function clearLegendFilter() {
   activeLegendFilter = null;
-
-  cy.elements().removeClass('legend-match legend-dim dimmed highlighted focused faded neighbor-focus');
+  cy.elements().removeClass('legend-match legend-dim dimmed highlighted focused faded neighbor-focus hover-dim hover-edge bg-dim search-match');
   cy.nodes().removeStyle('opacity');
   cy.edges().removeStyle('opacity');
-
   document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('active-filter'));
   const resetBtn = document.getElementById('legend-reset-filter');
   if (resetBtn) resetBtn.classList.remove('visible');
-
   applyPlantSoftDim();
-
   cy.resize();
   cy.animate({ fit: { padding: 60 }, duration: 380 });
 }
 
-// ─── Chat Highlight — smooth focus zoom ──────────────────────────────────────
+// ─── Chat Highlight (#3 — stronger) ──────────────────────────────────────────
 function highlightNodesFromChat(rawResults) {
   if (!cy || !rawResults || rawResults.length === 0) return;
 
@@ -580,21 +794,21 @@ function highlightNodesFromChat(rawResults) {
     const nodeId = node.data('id');
     const props  = node.data('properties') || {};
     return allValues.some(val =>
-      nodeId === val ||
-      nodeId.includes(val) ||
+      nodeId === val || nodeId.includes(val) ||
       Object.values(props).some(p => String(p) === val)
     );
   });
 
-  // No matches → leave graph stable
-  if (matchedNodes.length === 0) return;
+  if (matchedNodes.length === 0) return; // leave graph stable
 
-  // Reset cleanly first
-  cy.elements().removeClass('highlighted dimmed focused faded neighbor-focus legend-match legend-dim');
+  cy.elements().removeClass(
+    'highlighted dimmed focused faded neighbor-focus legend-match legend-dim hover-dim hover-edge bg-dim search-match'
+  );
   cy.nodes().removeStyle('opacity');
   cy.edges().removeStyle('opacity');
   applyPlantSoftDim();
 
+  // Heavy dim on non-matches
   cy.nodes().addClass('dimmed');
   cy.edges().addClass('dimmed');
   matchedNodes.forEach(node => {
@@ -636,10 +850,12 @@ function highlightPath(rawResults) {
       const dj   = cy.elements().dijkstra({ root: matchedNodes[i], directed: true });
       const path = dj.pathTo(matchedNodes[i + 1]);
       if (path && path.length > 0) pathCollection = pathCollection.union(path);
-    } catch (e) { /* no path between pair */ }
+    } catch (e) { /* no path */ }
   }
 
-  cy.elements().removeClass('highlighted dimmed focused faded neighbor-focus legend-match legend-dim');
+  cy.elements().removeClass(
+    'highlighted dimmed focused faded neighbor-focus legend-match legend-dim hover-dim hover-edge bg-dim search-match'
+  );
   cy.nodes().removeStyle('opacity');
   cy.edges().removeStyle('opacity');
   applyPlantSoftDim();
@@ -654,15 +870,12 @@ function highlightPath(rawResults) {
   cy.animate({ fit: { eles: toHighlight, padding: 60 }, duration: 600, easing: 'ease-in-out-cubic' });
 }
 
-// ─── Graph Controls ────────────────────────────────────────────────────────────
+// ─── Graph Controls ───────────────────────────────────────────────────────────
 function initGraphControls() {
-  // Fit — resize first to avoid stale container dimensions
   document.getElementById('btn-fit').addEventListener('click', () => {
-    cy.resize();
-    cy.animate({ fit: { padding: 60 }, duration: 380 });
+    cy.resize(); cy.animate({ fit: { padding: 60 }, duration: 380 });
   });
 
-  // Reset — full state clear + reload
   document.getElementById('btn-reset').addEventListener('click', async () => {
     closeNodeDetail();
     cy.elements().remove();
@@ -670,64 +883,48 @@ function initGraphControls() {
     await loadGraph();
   });
 
-  // Zoom in/out — centered on current viewport center
   document.getElementById('btn-zoom-in').addEventListener('click', () => {
-    cy.resize();
-    cy.animate({ zoom: cy.zoom() * 1.3 }, { duration: 200 });
+    cy.resize(); cy.animate({ zoom: cy.zoom() * 1.3 }, { duration: 200 });
   });
   document.getElementById('btn-zoom-out').addEventListener('click', () => {
-    cy.resize();
-    cy.animate({ zoom: cy.zoom() * 0.75 }, { duration: 200 });
+    cy.resize(); cy.animate({ zoom: cy.zoom() * 0.75 }, { duration: 200 });
   });
 
-  // Pan arrows
   document.getElementById('btn-nav-prev').addEventListener('click', () => { cy.panBy({ x: 140, y: 0 }); });
   document.getElementById('btn-nav-next').addEventListener('click', () => { cy.panBy({ x: -140, y: 0 }); });
 
-  // Export PNG
   document.getElementById('btn-download').addEventListener('click', function() {
-    const png  = cy.png({ scale: 2 });
-    const link = document.createElement('a');
-    link.href = png; link.download = 'graphiq-export.png'; link.click();
+    const png = cy.png({ scale: 2 });
+    const a   = document.createElement('a');
+    a.href = png; a.download = 'graphiq-export.png'; a.click();
   });
 
-  // Fullscreen
   document.getElementById('btn-fullscreen').addEventListener('click', function() {
     const gp = document.getElementById('graph-panel');
-    if (!document.fullscreenElement) {
-      gp.requestFullscreen && gp.requestFullscreen();
-    } else {
-      document.exitFullscreen && document.exitFullscreen();
-    }
+    if (!document.fullscreenElement) { gp.requestFullscreen && gp.requestFullscreen(); }
+    else { document.exitFullscreen && document.exitFullscreen(); }
   });
   document.addEventListener('fullscreenchange', () => {
     setTimeout(() => { cy.resize(); cy.fit(null, 60); }, 150);
   });
 
-  // Node detail close
   document.getElementById('node-detail-close').addEventListener('click', () => {
-    resetAllHighlights();
-    closeNodeDetail();
+    resetAllHighlights(); closeNodeDetail();
   });
-
-  // Focus Connections button (was "Expand Neighbors")
   document.getElementById('btn-expand-node').addEventListener('click', focusConnections);
 
   // Minimize / Expand
   document.getElementById('btn-minimize').addEventListener('click', function() {
-    const gp    = document.getElementById('graph-panel');
-    const cp    = document.getElementById('chat-panel');
-    const span  = this.querySelector('span');
+    const gp   = document.getElementById('graph-panel');
+    const cp   = document.getElementById('chat-panel');
+    const span = this.querySelector('span');
     const isMin = gp.classList.contains('minimized');
     if (isMin) {
-      gp.classList.remove('minimized');
-      cp.classList.remove('expanded');
+      gp.classList.remove('minimized'); cp.classList.remove('expanded');
       if (span) span.textContent = 'Minimize';
-      // Wait for CSS transition then resize + fit
       setTimeout(() => { cy.resize(); cy.animate({ fit: { padding: 60 } }, { duration: 350 }); }, 340);
     } else {
-      gp.classList.add('minimized');
-      cp.classList.add('expanded');
+      gp.classList.add('minimized'); cp.classList.add('expanded');
       if (span) span.textContent = 'Expand';
     }
   });
@@ -736,19 +933,20 @@ function initGraphControls() {
   document.getElementById('btn-overlay').addEventListener('click', function() {
     overlayVisible = !overlayVisible;
     const span = this.querySelector('span');
-    cy.edges().style({ 'opacity': overlayVisible ? 0.5 : 0.02, 'label': '' });
+    cy.edges().style({ 'line-color': overlayVisible ? 'rgba(255,255,255,0.04)' : 'transparent', 'opacity': overlayVisible ? 1 : 0 });
     if (span) span.textContent = overlayVisible ? 'Hide Overlay' : 'Show Overlay';
   });
+
+  // Focus Mode Toggle (new)
+  const focusModeBtn = document.getElementById('btn-focus-mode');
+  if (focusModeBtn) focusModeBtn.addEventListener('click', toggleGlobalFocusMode);
 }
 
-// ─── Shared Helpers ───────────────────────────────────────────────────────────
-
-/** Re-apply the designed plant soft opacity (not a class — intentional default). */
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function applyPlantSoftDim() {
   if (!cy) return;
   cy.nodes('[label="Plant"]').forEach(n => {
-    // Isolated plants (degree ≤ 1) are barely visible by design
-    n.style('opacity', n.degree() <= 1 ? 0.25 : 0.45);
+    n.style('opacity', n.degree() <= 1 ? 0.22 : 0.40);
   });
 }
 
@@ -764,11 +962,9 @@ function showGraphLoading(msg) {
   document.getElementById('graph-loading-text').textContent = msg;
   el.style.display = 'flex';
 }
-
 function hideGraphLoading() {
   document.getElementById('graph-loading').style.display = 'none';
 }
-
 function showGraphError(msg) {
   const el = document.getElementById('graph-loading');
   const sp = el.querySelector('.graph-spinner');
@@ -776,7 +972,6 @@ function showGraphError(msg) {
   document.getElementById('graph-loading-text').textContent = msg;
   el.style.display = 'flex';
 }
-
 function updateStatus(connected) {
   const pill = document.getElementById('status-indicator');
   const text = document.getElementById('status-text');
@@ -789,5 +984,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   initCytoscape();
   initGraphControls();
   initLegend();
+  initSearch();
   await loadGraph();
 });
