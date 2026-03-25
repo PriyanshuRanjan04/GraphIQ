@@ -13,7 +13,7 @@
 </head>
 <body>
 
-  <!-- ══════════════════════════════════════════ HEADER (Change 4) -->
+  <!-- ══ HEADER ══════════════════════════════════════════════ -->
   <header id="app-header">
     <div class="header-left">
       <div class="header-logo">
@@ -38,25 +38,48 @@
     </div>
   </header>
 
-  <!-- ══════════════════════════════════════════ MAIN LAYOUT -->
+  <!-- ══ CHANGE 1: BREADCRUMB BAR ════════════════════════════ -->
+  <div class="breadcrumb-bar">
+    <div class="breadcrumb-left">
+      <button class="btn-minimize" id="btn-minimize">
+        <svg width="14" height="14" viewBox="0 0 14 14">
+          <rect x="1" y="6" width="12" height="2" fill="currentColor" rx="1"/>
+        </svg>
+        <span>Minimize</span>
+      </button>
+      <button class="btn-overlay" id="btn-overlay">
+        <svg width="14" height="14" viewBox="0 0 14 14">
+          <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <circle cx="7" cy="7" r="2" fill="currentColor"/>
+        </svg>
+        <span>Hide Granular Overlay</span>
+      </button>
+    </div>
+    <div class="breadcrumb-center">
+      <span class="breadcrumb-item">Mapping</span>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-item active">Order to Cash</span>
+    </div>
+    <div class="breadcrumb-right"></div>
+  </div>
+
+  <!-- ══ MAIN LAYOUT ══════════════════════════════════════════ -->
   <div id="main-container">
 
-    <!-- ──────────────── LEFT: GRAPH PANEL -->
+    <!-- ──── LEFT: GRAPH PANEL ──────────────────────────────── -->
     <div id="graph-panel">
 
-      <!-- Graph Controls (Change 5) -->
+      <!-- Top controls (kept minimal, breadcrumb has minimize) -->
       <div id="graph-controls">
         <button class="ctrl-btn" id="btn-fit" title="Fit all">⊡</button>
-        <button class="ctrl-btn" id="btn-reset" title="Reset">↺</button>
-        <button class="ctrl-btn" id="btn-zoom-in" title="Zoom in">+</button>
-        <button class="ctrl-btn" id="btn-zoom-out" title="Zoom out">−</button>
+        <button class="ctrl-btn" id="btn-reset" title="Reset graph">↺</button>
         <div class="ctrl-divider"></div>
         <span id="nodes-count-badge" class="count-label">—</span>
         <span class="count-sep">·</span>
         <span id="edges-count-badge" class="count-label">—</span>
       </div>
 
-      <!-- Legend (Change 6) -->
+      <!-- Legend -->
       <div id="graph-legend">
         <div class="legend-title">NODE TYPES</div>
         <div class="legend-item"><span class="legend-dot" style="background:#4A90D9"></span>Customer</div>
@@ -69,7 +92,7 @@
         <div class="legend-item"><span class="legend-dot" style="background:#95A5A6"></span>Plant</div>
       </div>
 
-      <!-- Graph loading overlay (Change 12) -->
+      <!-- Graph loading overlay -->
       <div id="graph-loading">
         <div class="graph-spinner"></div>
         <p id="graph-loading-text">Loading graph...</p>
@@ -78,28 +101,41 @@
       <!-- Cytoscape canvas -->
       <div id="cy"></div>
 
-      <!-- Hover tooltip (Change 10) -->
+      <!-- Hover tooltip -->
       <div id="node-tooltip"></div>
 
-      <!-- Node Detail Panel (Change 7) -->
+      <!-- CHANGE 4: Node Detail Card (redesigned) -->
       <div id="node-detail-panel" class="hidden">
         <div class="detail-header">
-          <div class="detail-title-row">
-            <span id="node-detail-icon" class="detail-icon"></span>
-            <span id="node-detail-label" class="detail-label"></span>
-            <span id="node-detail-id" class="detail-id"></span>
+          <div class="detail-title">
+            <span id="detail-icon"></span>
+            <span id="detail-label-text"></span>
           </div>
-          <button id="node-detail-close" class="detail-close" title="Close">×</button>
+          <button id="node-detail-close">×</button>
         </div>
-        <div class="detail-divider"></div>
-        <div id="node-detail-body" class="detail-properties"></div>
-        <div class="detail-divider"></div>
-        <button id="btn-expand-node" class="detail-expand-btn">◈ Expand Neighbors</button>
+        <div id="detail-properties-list"></div>
+        <div class="detail-footer">
+          <span id="detail-connections">Connections: 0</span>
+          <button id="btn-expand-node">Expand Neighbors</button>
+        </div>
+      </div>
+
+      <!-- CHANGE 6: Bottom Navigation Bar -->
+      <div class="graph-bottom-nav">
+        <button class="nav-btn" id="btn-nav-prev" title="Previous">←</button>
+        <button class="nav-btn" id="btn-nav-next" title="Next">→</button>
+        <div class="nav-divider"></div>
+        <button class="nav-btn" id="btn-zoom-out" title="Zoom out">−</button>
+        <span class="zoom-level" id="zoom-level">100%</span>
+        <button class="nav-btn" id="btn-zoom-in" title="Zoom in">+</button>
+        <div class="nav-divider"></div>
+        <button class="nav-btn" id="btn-download" title="Export PNG">⬇</button>
+        <button class="nav-btn" id="btn-fullscreen" title="Fullscreen">⛶</button>
       </div>
 
     </div>
 
-    <!-- ──────────────── RIGHT: CHAT PANEL (Change 8) -->
+    <!-- ──── RIGHT: CHAT PANEL ──────────────────────────────── -->
     <div id="chat-panel">
 
       <div id="chat-header">
@@ -137,9 +173,18 @@
         <span id="meta-time" class="meta-tag"></span>
       </div>
 
+      <!-- CHANGE 7: Agent status bar -->
+      <div class="agent-status" id="agent-status">
+        <div class="agent-avatar">
+          <div class="agent-dot"></div>
+        </div>
+        <span class="agent-name">Graph Agent</span>
+        <span class="agent-waiting">is awaiting instructions</span>
+      </div>
+
       <!-- Input -->
       <div id="chat-input-area">
-        <input type="text" id="chat-input" placeholder="Ask anything..." autocomplete="off" />
+        <input type="text" id="chat-input" placeholder="Analyze anything..." autocomplete="off" />
         <button id="btn-send" title="Send">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
             <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>

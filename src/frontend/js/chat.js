@@ -6,6 +6,17 @@
 let isSending = false;
 let currentLoadingMsgEl = null;
 
+// ─── Change 7: Agent status helpers ──────────────────────────────────────────
+function setAgentStatus(active) {
+  const bar = document.getElementById('agent-status');
+  if (!bar) return;
+  if (active) {
+    bar.classList.add('hidden');    // hide when processing
+  } else {
+    bar.classList.remove('hidden'); // show when idle
+  }
+}
+
 // ─── Loading Steps ────────────────────────────────────────────────────────────
 const LOADING_STEPS = [
   { delay: 0,    text: '🔍 Checking query...' },
@@ -79,6 +90,7 @@ async function handleSend() {
   isSending = true;
   input.value = '';
   setInputState(false);
+  setAgentStatus(true); // Change 7: hide awaiting bar
 
   const chips = document.getElementById('example-chips');
   if (chips) chips.style.display = 'none';
@@ -114,6 +126,7 @@ async function handleSend() {
     appendErrorMessage(errorMsg);
     isSending = false;
     setInputState(true);
+    setAgentStatus(false); // Change 7
     scrollToBottom(document.getElementById('chat-messages'));
     return;
   }
@@ -129,6 +142,7 @@ async function handleSend() {
     if (typeof resetAllHighlights === 'function') resetAllHighlights();
     isSending = false;
     setInputState(true);
+    setAgentStatus(false); // Change 7
     scrollToBottom(document.getElementById('chat-messages'));
     return;
   }
@@ -148,6 +162,7 @@ async function handleSend() {
   updateMetadata(query, response, elapsed);
   isSending = false;
   setInputState(true);
+  setAgentStatus(false); // Change 7: show idle bar again
   scrollToBottom(document.getElementById('chat-messages'));
 }
 
