@@ -30,7 +30,7 @@ def get_full_graph() -> dict:
     # --- Fetch all nodes ---
     node_query = """
     MATCH (n)
-    RETURN id(n) AS neo4j_id,
+    RETURN elementId(n) AS neo4j_id,
            labels(n) AS labels,
            properties(n) AS props
     """
@@ -65,14 +65,14 @@ def get_full_graph() -> dict:
     # --- Fetch all relationships ---
     rel_query = """
     MATCH (a)-[r]->(b)
-    RETURN id(r) AS rel_id,
+    RETURN elementId(r) AS rel_id,
            type(r) AS rel_type,
            labels(a)[0] AS source_label,
            properties(a).id AS source_id,
-           id(a) AS source_neo4j_id,
+           elementId(a) AS source_neo4j_id,
            labels(b)[0] AS target_label,
            properties(b).id AS target_id,
-           id(b) AS target_neo4j_id
+           elementId(b) AS target_neo4j_id
     """
     try:
         rel_results = run_query(rel_query)
@@ -115,13 +115,13 @@ def get_node_with_neighbors(node_id: str) -> dict:
     MATCH (n)
     WHERE n.id = $node_id
     OPTIONAL MATCH (n)-[r]-(m)
-    RETURN id(n) AS n_id,
+    RETURN elementId(n) AS n_id,
            labels(n) AS n_labels,
            properties(n) AS n_props,
-           id(r) AS r_id,
+           elementId(r) AS r_id,
            type(r) AS r_type,
            startNode(r) = n AS is_outgoing,
-           id(m) AS m_id,
+           elementId(m) AS m_id,
            labels(m) AS m_labels,
            properties(m) AS m_props
     """
@@ -150,7 +150,7 @@ def get_node_with_neighbors(node_id: str) -> dict:
             })
 
         # Neighbor node
-        if row.get("m_id") is not None:
+        if row.get("m_id") is not None and row.get("m_id") != "":
             m_label = row["m_labels"][0] if row["m_labels"] else "Unknown"
             m_cyto_id = f"{m_label}_{row['m_props'].get('id', row['m_id'])}"
             if m_cyto_id not in seen_nodes:
@@ -166,7 +166,7 @@ def get_node_with_neighbors(node_id: str) -> dict:
                 })
 
             # Edge
-            if row.get("r_id") is not None:
+            if row.get("r_id") is not None and row.get("r_id") != "":
                 if row.get("is_outgoing"):
                     source, target = n_cyto_id, m_cyto_id
                 else:
