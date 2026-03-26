@@ -5,7 +5,7 @@ const API_BASE =
   window.location.hostname === 'localhost' ||
   window.location.hostname === '127.0.0.1'
     ? 'http://127.0.0.1:8000'
-    : 'https://graphiq-api.onrender.com';
+    : 'https://graphiq-crvn.onrender.com';
 
 /**
  * Fetch the full graph (all nodes + edges in Cytoscape.js format)
