@@ -2,11 +2,7 @@
 
 > Natural-language querying and interactive graph visualization for SAP Order-to-Cash data, powered by Neo4j, Groq LLM, and Cytoscape.js.
 
-<<<<<<< Updated upstream
 🔗 **Live Demo:** [https://graph-76eq8neqt-priyanshus-projects-7a65a9a3.vercel.app](https://graph-76eq8neqt-priyanshus-projects-7a65a9a3.vercel.app)
-=======
-🔗 **Live Demo:** [https://your-new-vercel-url.vercel.app](https://your-new-vercel-url.vercel.app)
->>>>>>> Stashed changes
 
 ---
 
