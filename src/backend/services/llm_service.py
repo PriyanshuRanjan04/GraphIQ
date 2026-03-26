@@ -25,8 +25,9 @@ _CYPHER_PROMPT = (_PROMPTS_DIR / "cypher_prompt.txt").read_text(encoding="utf-8"
 _client = Groq(api_key=GROQ_API_KEY)
 
 # Models
-_MODEL_CYPHER = "llama3-8b-8192"           # fast, high rate-limit — Cypher is a structured task
+_MODEL_CYPHER = "llama-3.3-70b-versatile"  # accurate Cypher generation requires the full model
 _MODEL_ANSWER = "llama-3.3-70b-versatile"  # premium quality for user-facing answers
+
 
 _CYPHER_BLOCK_RE = re.compile(r"```(?:cypher)?\s*\n?(.*?)```", re.DOTALL | re.IGNORECASE)
 
