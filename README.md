@@ -22,34 +22,36 @@ The system translates your question into a Neo4j Cypher query, executes it, and 
 ## 🏗️ Architecture
 
 ```
- ┌──────────────────────────────────────────────────────┐
- │              Vercel  (Static Frontend)               │
- │        Vanilla JS  +  Cytoscape.js  +  CSS           │
- │                                                      │
- │   ┌─────────────────┐      ┌─────────────────────┐  │
- │   │   Graph Panel   │ ◄──  │     Chat Panel       │  │
- │   │  Cytoscape.js   │      │  NL Input → Answer   │  │
- │   │  8 node types   │      │  Structured display  │  │
- │   └─────────────────┘      └─────────────────────┘  │
- └──────────────────────┬───────────────────────────────┘
-                        │  HTTPS REST
- ┌──────────────────────▼───────────────────────────────┐
- │               Render  (FastAPI Backend)              │
- │                                                      │
- │  POST /api/chat                                      │
- │  Guardrail → Cypher Gen → Validator                  │
- │           → Neo4j Exec → Answer Gen                  │
- │                                                      │
- │  GET /api/graph   — nodes + edges for visualization  │
- │  GET /api/health  — connectivity check               │
- └──────────┬───────────────────────────┬───────────────┘
-            │                           │
- ┌──────────▼──────────┐   ┌────────────▼─────────────┐
- │    Neo4j AuraDB     │   │   Groq API (Llama 3 70B)  │
- │   8 node labels     │   │   Cypher generation       │
- │   7 relationship    │   │   Answer generation       │
- │   types             │   │   Retry logic (backoff)   │
- └─────────────────────┘   └───────────────────────────┘
++--------------------------------------------------------+
+|           Vercel  (Static Frontend)                    |
+|     Vanilla JS  +  Cytoscape.js  +  CSS                |
+|                                                        |
+|  +-----------------+        +---------------------+   |
+|  |   Graph Panel   | <----  |     Chat Panel      |   |
+|  |  Cytoscape.js   |        |  NL Input -> Answer |   |
+|  |  8 node types   |        |  Structured display |   |
+|  +-----------------+        +---------------------+   |
++---------------------------+----------------------------+
+                            |  HTTPS REST
+                            v
++---------------------------+----------------------------+
+|           Render  (FastAPI Backend)                    |
+|                                                        |
+|  POST /api/chat                                        |
+|  Guardrail -> Cypher Gen -> Validator                  |
+|           -> Neo4j Exec  -> Answer Gen                 |
+|                                                        |
+|  GET /api/graph   - nodes + edges for visualization    |
+|  GET /api/health  - connectivity check                 |
++-------------+------------------------------+-----------+
+              |                              |
+              v                              v
++-------------+-----------+  +--------------+----------+
+|    Neo4j AuraDB         |  |  Groq API (Llama 3 70B) |
+|  - 8 node labels        |  |  - Cypher generation    |
+|  - 7 relationship types |  |  - Answer generation    |
+|                         |  |  - Retry (backoff)      |
++-------------------------+  +-------------------------+
 ```
 
 ---
