@@ -666,7 +666,7 @@ async function handleSend() {
     response = await sendChat(query);
   } catch (err) {
     console.error('[GraphIQ] sendChat error:', err);
-    errorMsg = 'Unable to process request. Please check the backend is running at port 8000.';
+    errorMsg = 'The backend is waking up — this can take 15–30 seconds on first request. Please try again in a moment.';
   }
 
   stepTimers.forEach(t => clearTimeout(t));

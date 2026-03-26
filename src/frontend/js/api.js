@@ -53,3 +53,14 @@ async function checkHealth() {
   if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
   return res.json();
 }
+
+// ─── Keep-alive ping ──────────────────────────────────────────────────────────
+// Render free tier sleeps after ~15 min of inactivity.
+// Ping health every 10 min to keep the instance warm.
+(function startKeepAlive() {
+  const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
+  const ping = () => fetch(`${API_BASE}/api/health`).catch(() => {});
+  ping(); // immediate ping on page load
+  setInterval(ping, PING_INTERVAL);
+})();
+
