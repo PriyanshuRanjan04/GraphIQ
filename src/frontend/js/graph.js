@@ -916,10 +916,9 @@ function initDividerDrag() {
     const minGraph = containerWidth * 0.45;
     const maxGraph = containerWidth * 0.82;
     if (newGraphWidth < minGraph || newGraphWidth > maxGraph) return;
-    graphPanel.style.flex  = '';
-    graphPanel.style.width = newGraphWidth + 'px';
-    chatPanel.style.flex   = '';
-    chatPanel.style.width  = (containerWidth - newGraphWidth - 4) + 'px';
+    // Use flex shorthand — flex-basis overrides width in flex containers
+    graphPanel.style.flex = `0 0 ${newGraphWidth}px`;
+    chatPanel.style.flex  = `0 0 ${containerWidth - newGraphWidth - 4}px`;
     // Keep saved widths in sync during drag
     savedGraphWidth = newGraphWidth;
     savedChatWidth  = containerWidth - newGraphWidth - 4;
@@ -1021,32 +1020,31 @@ function initGraphControls() {
       const divider = document.getElementById('panel-divider');
 
       if (!isMinimized) {
-        // MINIMIZING: save current widths, then collapse graph
+        // MINIMIZING: save current flex-basis sizes, then collapse
         savedGraphWidth = _graphPanel.offsetWidth;
         savedChatWidth  = _chatPanel.offsetWidth;
         const cw = _container.offsetWidth;
 
-        _graphPanel.style.flex     = '';
-        _graphPanel.style.width    = '0px';
+        // Must use flex shorthand — flex-basis beats style.width
+        _graphPanel.style.flex     = '0 0 0px';
         _graphPanel.style.overflow = 'hidden';
         _graphPanel.style.minWidth = '0px';
-        _chatPanel.style.flex      = '';
-        _chatPanel.style.width     = (cw - 4) + 'px';
+        _chatPanel.style.flex      = `0 0 ${cw - 4}px`;
 
         if (span) span.textContent = 'Expand';
         if (divider) divider.style.display = 'none';
         isMinimized = true;
 
       } else {
-        // EXPANDING: restore saved widths (or fallback to defaults)
+        // EXPANDING: restore saved flex-basis sizes
         const cw = _container.offsetWidth;
         const restoreGraph = savedGraphWidth || cw * 0.72;
         const restoreChat  = savedChatWidth  || cw * 0.28;
 
-        _graphPanel.style.width    = restoreGraph + 'px';
+        _graphPanel.style.flex     = `0 0 ${restoreGraph}px`;
         _graphPanel.style.overflow = '';
         _graphPanel.style.minWidth = '';
-        _chatPanel.style.width     = restoreChat + 'px';
+        _chatPanel.style.flex      = `0 0 ${restoreChat}px`;
 
         if (span) span.textContent = 'Minimize';
         if (divider) divider.style.display = '';
