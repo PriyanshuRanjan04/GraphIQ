@@ -120,13 +120,13 @@ button { font-family: var(--font); cursor: pointer; }
   background: rgba(74,144,217,0.12); border-color: rgba(74,144,217,0.35);
   color: var(--accent);
 }
-.btn-minimize, .btn-overlay {
+.btn-overlay {
   display: flex; align-items: center; gap: 6px; padding: 5px 10px;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
   border-radius: var(--radius-sm); color: rgba(255,255,255,0.7);
   font-size: var(--text-sm); transition: all 0.15s ease;
 }
-.btn-minimize:hover, .btn-overlay:hover { background: rgba(255,255,255,0.10); color: #fff; }
+.btn-overlay:hover { background: rgba(255,255,255,0.10); color: #fff; }
 .breadcrumb-center {
   display: flex; align-items: center; gap: 6px; font-size: var(--text-base);
   position: absolute; left: 50%; transform: translateX(-50%);
@@ -140,25 +140,24 @@ button { font-family: var(--font); cursor: pointer; }
    MAIN LAYOUT
    ══════════════════════════════════════════════════════════════ */
 #main-container {
-  display: flex;
+  display: flex !important;
+  width: 100% !important;
   height: calc(100vh - var(--header-h) - var(--crumb-h));
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
 /* ══════════════════════════════════════════════════════════════
    GRAPH PANEL
    ══════════════════════════════════════════════════════════════ */
 #graph-panel {
-  flex: 0 0 72%; position: relative;
+  width: 72% !important;
+  min-width: 72% !important;
+  max-width: 72% !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  position: relative;
   background: #13151f; overflow: hidden;
   border-right: 1px solid var(--border);
-  transition: flex-basis 0.25s ease;
-}
-
-/* Disable transition during drag for responsive feel */
-body.is-dragging #graph-panel,
-body.is-dragging #chat-panel {
-  transition: none !important;
 }
 
 /* Cytoscape canvas — no dot pattern */
@@ -390,21 +389,7 @@ body.is-dragging #chat-panel {
 /* ══════════════════════════════════════════════════════════════
    DRAGGABLE PANEL DIVIDER (Change 2)
    ══════════════════════════════════════════════════════════════ */
-.panel-divider {
-  width: 4px; background: rgba(255,255,255,0.04);
-  cursor: col-resize; position: relative; flex-shrink: 0;
-  transition: background 0.2s ease;
-  display: flex; align-items: center; justify-content: center;
-  z-index: 30;
-}
-.panel-divider:hover { background: rgba(74,144,217,0.30); }
-.panel-divider.dragging { background: rgba(74,144,217,0.50); }
-.divider-handle {
-  width: 2px; height: 32px;
-  background: rgba(255,255,255,0.15); border-radius: 2px;
-}
-.panel-divider:hover .divider-handle,
-.panel-divider.dragging .divider-handle { background: #4A90D9; }
+
 
 /* ══════════════════════════════════════════════════════════════
    BOTTOM NAV BAR (Change 4)
@@ -437,9 +422,13 @@ body.is-dragging #chat-panel {
    CHAT PANEL
    ══════════════════════════════════════════════════════════════ */
 #chat-panel {
-  flex: 1; display: flex; flex-direction: column;
+  width: 28% !important;
+  min-width: 28% !important;
+  max-width: 28% !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  display: flex; flex-direction: column;
   background: var(--bg-base); border-left: 1px solid var(--border); overflow: hidden;
-  transition: flex-basis 0.25s ease;
 }
 
 #chat-header {

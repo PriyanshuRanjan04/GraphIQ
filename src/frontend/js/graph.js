@@ -50,11 +50,6 @@ let focusModeActive    = false;   // Focus Connections button state
 let globalFocusMode    = false;   // Background dim toggle
 let hoveredNodeId      = null;
 
-// ─── Minimize / Expand state ──────────────────────────────────────────────────
-let isMinimized      = false;
-let savedGraphWidth  = null;
-let savedChatWidth   = null;
-
 // ─── Initialize Cytoscape ─────────────────────────────────────────────────────
 function initCytoscape() {
   cy = cytoscape({
@@ -889,53 +884,7 @@ function updateGraphStats(nodeCount, edgeCount) {
   if (el) el.textContent = `${nodeCount} nodes · ${edgeCount} edges`;
 }
 
-function initDividerDrag() {
-  const divider    = document.getElementById('panel-divider');
-  const graphPanel = document.getElementById('graph-panel');
-  const chatPanel  = document.getElementById('chat-panel');
-  const container  = document.getElementById('main-container');
-  if (!divider || !graphPanel || !chatPanel) return;
 
-  let isDragging = false, startX = 0, startGraphWidth = 0;
-
-  divider.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    startX = e.clientX;
-    startGraphWidth = graphPanel.offsetWidth;
-    divider.classList.add('dragging');
-    document.body.classList.add('is-dragging');
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const containerWidth = container.offsetWidth;
-    const delta = e.clientX - startX;
-    const newGraphWidth = startGraphWidth + delta;
-    const minGraph = containerWidth * 0.45;
-    const maxGraph = containerWidth * 0.82;
-    if (newGraphWidth < minGraph || newGraphWidth > maxGraph) return;
-    // Use flex shorthand — flex-basis overrides width in flex containers
-    graphPanel.style.flex = `0 0 ${newGraphWidth}px`;
-    chatPanel.style.flex  = `0 0 ${containerWidth - newGraphWidth - 4}px`;
-    // Keep saved widths in sync during drag
-    savedGraphWidth = newGraphWidth;
-    savedChatWidth  = containerWidth - newGraphWidth - 4;
-  });
-
-  const endDrag = () => {
-    if (!isDragging) return;
-    isDragging = false;
-    divider.classList.remove('dragging');
-    document.body.classList.remove('is-dragging');
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    setTimeout(() => { if (cy) { cy.resize(); } }, 50);
-  };
-  document.addEventListener('mouseup', endDrag);
-  document.addEventListener('mouseleave', endDrag);
-}
 
 function initGraphControls() {
   // Wire cy zoom event → display update
@@ -1008,67 +957,6 @@ function initGraphControls() {
   document.getElementById('node-detail-close').addEventListener('click', () => { resetAllHighlights(); closeNodeDetail(); });
   document.getElementById('btn-expand-node').addEventListener('click', focusConnections);
 
-  // ─ Minimize / Expand ─
-  const btnMinimize = document.getElementById('btn-minimize');
-  const _graphPanel = document.getElementById('graph-panel');
-  const _chatPanel  = document.getElementById('chat-panel');
-  const _container  = document.getElementById('main-container');
-
-  if (btnMinimize) {
-    btnMinimize.addEventListener('click', function() {
-      const span = this.querySelector('span');
-      const divider = document.getElementById('panel-divider');
-
-      if (!isMinimized) {
-        // MINIMIZING: save current flex-basis sizes, then collapse
-        savedGraphWidth = _graphPanel.offsetWidth;
-        savedChatWidth  = _chatPanel.offsetWidth;
-        const cw = _container.offsetWidth;
-
-        // Must use flex shorthand — flex-basis beats style.width
-        _graphPanel.style.flex     = '0 0 0px';
-        _graphPanel.style.overflow = 'hidden';
-        _graphPanel.style.minWidth = '0px';
-        _chatPanel.style.flex      = `0 0 ${cw - 4}px`;
-
-        if (span) span.textContent = 'Expand';
-        if (divider) divider.style.display = 'none';
-        isMinimized = true;
-
-      } else {
-        // EXPANDING: restore saved flex-basis sizes
-        const cw = _container.offsetWidth;
-        const restoreGraph = savedGraphWidth || cw * 0.72;
-        const restoreChat  = savedChatWidth  || cw * 0.28;
-
-        _graphPanel.style.flex     = `0 0 ${restoreGraph}px`;
-        _graphPanel.style.overflow = '';
-        _graphPanel.style.minWidth = '';
-        _chatPanel.style.flex      = `0 0 ${restoreChat}px`;
-
-        if (span) span.textContent = 'Minimize';
-        if (divider) divider.style.display = '';
-        isMinimized = false;
-
-        // Resize and refit Cytoscape after transition
-        setTimeout(() => {
-          if (cy) { cy.resize(); cy.fit(undefined, 40); }
-        }, 100);
-      }
-    });
-  }
-
-  // Initialize saved widths from actual rendered sizes after load
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const gp = document.getElementById('graph-panel');
-      const cp = document.getElementById('chat-panel');
-      if (gp && cp) {
-        savedGraphWidth = gp.offsetWidth;
-        savedChatWidth  = cp.offsetWidth;
-      }
-    }, 500);
-  });
 
   // ─ Overlay toggle ─
   document.getElementById('btn-overlay').addEventListener('click', function() {
@@ -1124,7 +1012,6 @@ function updateStatus(connected) {
 document.addEventListener('DOMContentLoaded', async () => {
   initCytoscape();
   initGraphControls();
-  initDividerDrag();
   initLegend();
   initSearch();
   await loadGraph();
