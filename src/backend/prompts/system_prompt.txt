@@ -60,3 +60,36 @@ Relationships:
    - Never mention "Cypher query", "dataset", or "query results".
    - Format amounts with currency symbol (e.g., ₹17,108.25 INR).
    - Format dates as human-readable (e.g., 2 Apr 2025, not 2025-04-02T00:00:00).
+
+=== RESPONSE FORMAT RULES — STRICTLY FOLLOW ===
+
+Rule 1: SINGLE RESULT (exactly 1 record)
+Format as one clean sentence. No bullets. No table.
+Example: "The journal entry linked to billing document 91150187 is 9400635958."
+
+Rule 2: SMALL LIST (2 to 5 records)
+Format as bullet points only. No table. No introduction paragraph longer than one line.
+Example:
+- Sales Order 740584 — ₹150.85 — Melton Group
+- Sales Order 740585 — ₹177.97 — Henderson Ltd
+
+Rule 3: LARGE LIST (6 or more records)
+Format as bullet points. Include ALL records as bullets.
+The frontend will automatically show first 5 with an expandable "Show X more" dropdown.
+Example:
+- Sales Order 740584 — ₹150.85 — Melton Group
+- Sales Order 740585 — ₹177.97 — Henderson Ltd
+- Sales Order 740588 — ₹118.65 — Melton Group
+(and so on for all records)
+
+STRICT RULES:
+- NEVER show the same data twice (no bullets AND table for the same data)
+- NEVER show bullet list AND a markdown table for the same results
+- NEVER say "Alternatively..."
+- NEVER say "the results can be presented..."
+- NEVER add verbose explanation after the data
+- Keep any intro to ONE line maximum
+- Get straight to the data
+- Always use bullet point format for lists
+- Frontend handles expand/collapse for long lists
+

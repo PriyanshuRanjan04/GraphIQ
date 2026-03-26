@@ -432,6 +432,108 @@ function escapeAttr(str) {
   return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// ─── Duplicate / noise removers ───────────────────────────────────────────────
+function removeDuplicateData(text) {
+  const hasTable   = text.includes('|---|') || text.includes('| ---');
+  const hasBullets = (text.match(/^[•\-\*→]/gm) || []).length > 2;
+  if (hasTable && hasBullets) {
+    const tableStart = text.indexOf('|');
+    if (tableStart > 0) {
+      const beforeTable = text.substring(0, tableStart);
+      const afterTable  = text.substring(tableStart);
+      const introLine   = beforeTable.split('\n').find(l =>
+        l.trim().length > 0 &&
+        !/^[•\-\*→]/.test(l.trim())
+      ) || '';
+      return (introLine ? introLine.trim() + '\n' : '') + afterTable;
+    }
+  }
+  return text;
+}
+
+function removeAlternatively(text) {
+  return text
+    .replace(/alternatively[^.\n]*[.\n]/gi, '')
+    .replace(/the results can be presented[^.\n]*[.\n]/gi, '')
+    .replace(/in a table format:?\s*/gi, '')
+    .replace(/here is the (same )?data[^:\n]*:\s*/gi, '');
+}
+
+// ─── Dropdown rendering (6+ bullets) ─────────────────────────────────────────
+function renderWithDropdown(text) {
+  // If text already contains HTML (from structureAnswer), extract list items and
+  // wrap them in the dropdown pattern only when count > 5.
+  // We operate on the raw-ish text BEFORE structureAnswer for bullet detection,
+  // but structureAnswer has already been called by the caller in appendBotResponse.
+  // So here 'text' is the structured HTML from structureAnswer.
+  // Strategy: scan for .answer-list-item nodes count via regex and rewrap if needed.
+  const itemMatches = text.match(/<div class="answer-list-item">/g);
+  const totalItems  = itemMatches ? itemMatches.length : 0;
+
+  if (totalItems <= 5) return text;  // nothing to collapse
+
+  // Split out the answer-list block
+  const listStart = text.indexOf('<div class="answer-list">');
+  const listEnd   = text.lastIndexOf('</div>') + 6;  // closing the answer-list div
+  if (listStart === -1) return text;
+
+  const beforeList = text.substring(0, listStart);
+  const listBlock  = text.substring(listStart, listEnd);
+  const afterList  = text.substring(listEnd);
+
+  // Extract individual items HTML
+  const itemRegex = /<div class="answer-list-item">([\/\s\S]*?)<\/div>/g;
+  const allItems  = [];
+  let m;
+  while ((m = itemRegex.exec(listBlock)) !== null) {
+    allItems.push(m[0]);
+  }
+
+  if (allItems.length <= 5) return text;
+
+  const visibleItems = allItems.slice(0, 5);
+  const hiddenItems  = allItems.slice(5);
+  const hiddenCount  = hiddenItems.length;
+  const dropdownId   = 'dropdown_' + Date.now();
+
+  let rebuilt = '<div class="answer-list">';
+  rebuilt += visibleItems.join('');
+  rebuilt += `
+    <div class="show-more-container">
+      <button class="show-more-btn" onclick="window.toggleDropdown('${dropdownId}', this)">
+        &#9654; Show ${hiddenCount} more results
+      </button>
+      <div class="answer-list hidden-bullets" id="${dropdownId}">
+        ${hiddenItems.join('')}
+      </div>
+    </div>`;
+  rebuilt += '</div>';
+
+  return beforeList + rebuilt + afterList;
+}
+
+// Toggle visible / hidden for dropdown blocks
+function toggleDropdown(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isHidden = el.classList.contains('hidden-bullets');
+  if (isHidden) {
+    el.classList.remove('hidden-bullets');
+    el.classList.add('visible-bullets');
+    const count = el.querySelectorAll('.answer-list-item').length;
+    btn.innerHTML = `&#9660; Hide ${count} results`;
+    btn.classList.add('active');
+  } else {
+    el.classList.remove('visible-bullets');
+    el.classList.add('hidden-bullets');
+    const count = el.querySelectorAll('.answer-list-item').length;
+    btn.innerHTML = `&#9654; Show ${count} more results`;
+    btn.classList.remove('active');
+  }
+}
+window.toggleDropdown = toggleDropdown;
+
+
 // ─── Initialize ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const input   = document.getElementById('chat-input');
@@ -656,8 +758,14 @@ function appendBotResponse(data, query, elapsed) {
       Please ask about customers, orders, deliveries, billing documents, or payments.
     </div>`;
   } else {
-    // ③ Visual hierarchy — structure the answer (styleArrows applied for → indicator)
-    content += styleArrows(structureAnswer(data.answer || 'No answer returned.'));
+    // ③ Visual hierarchy — clean noise, structure, then apply dropdown logic
+    const cleanedAnswer = removeAlternatively(
+      removeDuplicateData(data.answer || 'No answer returned.')
+    );
+    const structured = structureAnswer(cleanedAnswer);
+    const withDropdown = renderWithDropdown(structured);
+    content += styleArrows(withDropdown);
+
 
     // Result count badge
     if (data.raw_results && data.raw_results.length > 0) {
