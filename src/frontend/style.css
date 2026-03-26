@@ -88,12 +88,8 @@ button { font-family: var(--font); cursor: pointer; }
 .breadcrumb-bar {
   height: var(--crumb-h);
   background: var(--bg-base); border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: center;
   padding: 0 16px; gap: 12px; position: relative; z-index: 90;
-}
-.breadcrumb-left  { display: flex; align-items: center; gap: 8px; }
-.breadcrumb-right {
-  flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
 }
 
 /* Search bar */
@@ -140,7 +136,6 @@ button { font-family: var(--font); cursor: pointer; }
 .btn-overlay:hover { background: rgba(255,255,255,0.10); color: #fff; }
 .breadcrumb-center {
   display: flex; align-items: center; gap: 6px; font-size: var(--text-base);
-  position: absolute; left: 50%; transform: translateX(-50%);
 }
 .breadcrumb-item { color: rgba(255,255,255,0.4); cursor: pointer; }
 .breadcrumb-item:hover { color: rgba(255,255,255,0.7); }
@@ -171,9 +166,22 @@ button { font-family: var(--font); cursor: pointer; }
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: #13151f;
+  background: var(--bg-base);
   border-right: 1px solid var(--border);
 }
+
+/* ── Graph panel top-left controls overlay ─────────────────────────────────── */
+#graph-top-controls {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: all;
+}
+
 
 /* Cytoscape canvas — no dot pattern */
 #cy {

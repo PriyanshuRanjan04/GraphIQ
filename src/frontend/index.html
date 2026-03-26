@@ -71,30 +71,10 @@
 
   <!-- ══ BREADCRUMB BAR ══════════════════════════════════════════ -->
   <div class="breadcrumb-bar">
-    <div class="breadcrumb-left">
-      <button class="btn-overlay" id="btn-overlay">
-        <svg width="14" height="14" viewBox="0 0 14 14">
-          <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill="none"/>
-          <circle cx="7" cy="7" r="2" fill="currentColor"/>
-        </svg>
-        <span>Hide Overlay</span>
-      </button>
-    </div>
     <div class="breadcrumb-center">
       <span class="breadcrumb-item">Mapping</span>
       <span class="breadcrumb-sep">/</span>
       <span class="breadcrumb-item active">Order to Cash</span>
-    </div>
-    <div class="breadcrumb-right">
-      <div class="search-wrapper">
-        <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none">
-          <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
-          <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <input id="graph-search-input" type="text" placeholder="Search nodes..." autocomplete="off" />
-        <button id="graph-search-clear" style="display:none" title="Clear search">×</button>
-      </div>
-      <button class="btn-focus-mode" id="btn-focus-mode">○ Focus Mode</button>
     </div>
   </div>
 
@@ -106,6 +86,26 @@
 
       <!-- Graph controls: info-only display panel -->
       <div id="graph-controls" style="display:none;"></div>
+
+      <!-- Top-left control overlay: Search + Focus Mode + Hide Overlay -->
+      <div id="graph-top-controls">
+        <button class="btn-overlay" id="btn-overlay">
+          <svg width="14" height="14" viewBox="0 0 14 14">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <circle cx="7" cy="7" r="2" fill="currentColor"/>
+          </svg>
+          <span>Hide Overlay</span>
+        </button>
+        <div class="search-wrapper">
+          <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+            <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input id="graph-search-input" type="text" placeholder="Search nodes..." autocomplete="off" />
+          <button id="graph-search-clear" style="display:none" title="Clear search">×</button>
+        </div>
+        <button class="btn-focus-mode" id="btn-focus-mode">○ Focus Mode</button>
+      </div>
 
       <!-- COLLAPSIBLE LEGEND (goal 2) -->
       <div id="graph-legend">
@@ -248,7 +248,7 @@
         <div class="msg bot-msg">
           <div class="msg-icon">🤖</div>
           <div class="msg-bubble bot-bubble">
-            <p>Ask me anything about the <strong>Order-to-Cash</strong> process — customers, orders, deliveries, billing, or payments.</p>
+            <p>Ask me anything about the <strong>Order-to-Cash</strong> process: customers, orders, deliveries, billing, or payments.</p>
           </div>
         </div>
       </div>
