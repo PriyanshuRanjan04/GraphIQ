@@ -373,7 +373,7 @@ async function loadGraph() {
   // Staged messages — each advances while backend wakes up
   const stages = [
     { msg: '🔌 Connecting to graph engine...', delay: 0    },
-    { msg: '⏳ Waking up backend (free tier)...', delay: 3000  },
+    { msg: '⏳ Waking up backend...', delay: 3000  },
     { msg: '📡 Fetching graph data...', delay: 8000  },
     { msg: '🔄 Still loading, please wait...', delay: 18000 },
     { msg: '⏳ Almost there...', delay: 30000 },
