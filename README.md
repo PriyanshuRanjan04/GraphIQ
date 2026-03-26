@@ -1,4 +1,4 @@
-# GraphIQ : Order-to-Cash Graph Intelligence
+# 🧠 GraphIQ — Order-to-Cash Graph Intelligence
 
 > Natural-language querying and interactive graph visualization for SAP Order-to-Cash data, powered by Neo4j, Groq LLM, and Cytoscape.js.
 
@@ -6,7 +6,7 @@
 
 ---
 
-## What It Does
+## ✨ What It Does
 
 GraphIQ lets business users explore SAP Order-to-Cash data through a conversational interface.
 Instead of writing SQL or Cypher, you type plain English:
@@ -15,49 +15,46 @@ Instead of writing SQL or Cypher, you type plain English:
 - *"Find all sales orders with no billing documents"*
 - *"Trace billing document 91150187 end to end"*
 
-The system translates your question into a Neo4j Cypher query, executes it, and returns a clean,
-structured answer — while simultaneously highlighting the relevant nodes on the graph.
+The system translates your question into a Neo4j Cypher query, executes it, and returns a clean structured answer — while simultaneously highlighting the relevant nodes on the graph.
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                  Vercel (Static Frontend)               │
-│  Vanilla JS + Cytoscape.js + CSS                        │
-│                                                         │
-│  ┌──────────────┐     ┌───────────────────────────┐    │
-│  │  Graph Panel │     │       Chat Panel           │    │
-│  │  Cytoscape.js│◄────│  NL Input → Response       │    │
-│  │  8 node types│     │  Structured answer display  │    │
-│  └──────────────┘     └───────────────────────────┘    │
-└────────────────────────┬────────────────────────────────┘
-                         │ HTTPS REST
-┌────────────────────────▼────────────────────────────────┐
-│                  Render (FastAPI Backend)                │
-│                                                         │
-│  POST /api/chat pipeline:                               │
-│  [Guardrail] → [Cypher Gen LLM] → [Cypher Validator]   │
-│             → [Neo4j Execution] → [Answer Gen LLM]     │
-│                                                         │
-│  GET /api/graph  — full graph for visualization         │
-│  GET /api/health — connectivity check                   │
-└────────────────────────┬────────────────────────────────┘
-                         │
-           ┌─────────────┴──────────────┐
-           │                            │
-┌──────────▼──────────┐   ┌────────────▼────────────┐
-│   Neo4j AuraDB      │   │   Groq API (Llama 3 70B) │
-│   8 node labels     │   │   Cypher generation       │
-│   7 relationship    │   │   Answer generation       │
-│   types             │   │   Rate-limit retry logic  │
-└─────────────────────┘   └─────────────────────────┘
+ ┌──────────────────────────────────────────────────────┐
+ │              Vercel  (Static Frontend)               │
+ │        Vanilla JS  +  Cytoscape.js  +  CSS           │
+ │                                                      │
+ │   ┌─────────────────┐      ┌─────────────────────┐  │
+ │   │   Graph Panel   │ ◄──  │     Chat Panel       │  │
+ │   │  Cytoscape.js   │      │  NL Input → Answer   │  │
+ │   │  8 node types   │      │  Structured display  │  │
+ │   └─────────────────┘      └─────────────────────┘  │
+ └──────────────────────┬───────────────────────────────┘
+                        │  HTTPS REST
+ ┌──────────────────────▼───────────────────────────────┐
+ │               Render  (FastAPI Backend)              │
+ │                                                      │
+ │  POST /api/chat                                      │
+ │  Guardrail → Cypher Gen → Validator                  │
+ │           → Neo4j Exec → Answer Gen                  │
+ │                                                      │
+ │  GET /api/graph   — nodes + edges for visualization  │
+ │  GET /api/health  — connectivity check               │
+ └──────────┬───────────────────────────┬───────────────┘
+            │                           │
+ ┌──────────▼──────────┐   ┌────────────▼─────────────┐
+ │    Neo4j AuraDB     │   │   Groq API (Llama 3 70B)  │
+ │   8 node labels     │   │   Cypher generation       │
+ │   7 relationship    │   │   Answer generation       │
+ │   types             │   │   Retry logic (backoff)   │
+ └─────────────────────┘   └───────────────────────────┘
 ```
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -69,115 +66,116 @@ structured answer — while simultaneously highlighting the relevant nodes on th
 
 ---
 
-## Graph Schema
+## 🗺️ Graph Schema
 
 ```
-(:Customer)-[:PLACED]->(:SalesOrder)
-(:SalesOrder)-[:HAS_DELIVERY]->(:Delivery)
-(:SalesOrder)-[:HAS_BILLING]->(:BillingDocument)
-(:BillingDocument)-[:HAS_PAYMENT]->(:Payment)
-(:Payment)-[:HAS_JOURNAL]->(:JournalEntry)
-(:SalesOrder)-[:CONTAINS]->(:Product)
-(:SalesOrder)-[:SHIPS_FROM]->(:Plant)
+(:Customer)        -[:PLACED]->        (:SalesOrder)
+(:SalesOrder)      -[:HAS_DELIVERY]->  (:Delivery)
+(:SalesOrder)      -[:HAS_BILLING]->   (:BillingDocument)
+(:BillingDocument) -[:HAS_PAYMENT]->   (:Payment)
+(:Payment)         -[:HAS_JOURNAL]->   (:JournalEntry)
+(:SalesOrder)      -[:CONTAINS]->      (:Product)
+(:SalesOrder)      -[:SHIPS_FROM]->    (:Plant)
 ```
 
-**8 node labels** · **7 relationship types** · SAP O2C process end-to-end
+**8 node labels** · **7 relationship types** · Full SAP O2C process
 
 ---
 
-## LLM Strategy
+## 🤖 LLM Strategy
 
 GraphIQ uses a **two-call LLM pipeline** per query:
 
-### Call 1: Cypher Generation
+### Call 1 — Cypher Generation
 - **Model:** `llama-3.3-70b-versatile` via Groq
 - **Input:** System prompt (graph schema + rules) + Cypher prompt + user question
 - **Output:** A validated Cypher `MATCH` query
-- **Temperature:** `0` (deterministic)
+- **Temperature:** `0` (fully deterministic)
 
-### Call 2: Answer Generation
+### Call 2 — Answer Generation
 - **Model:** `llama-3.3-70b-versatile` via Groq
 - **Input:** System prompt + user question + raw Neo4j results
-- **Output:** Formatted human-readable answer (sentence / bullets / dropdown)
-- **Temperature:** `0.3` (natural phrasing)
+- **Output:** Formatted human-readable answer
+- **Temperature:** `0.3` (slight variation for natural phrasing)
 
 ### Response Format Rules (enforced in system prompt)
+
 | Result count | Format |
 |---|---|
 | 1 result | Single clean sentence |
 | 2–5 results | Bullet points only, no table |
-| 6+ results | All bullets — frontend collapses to first 5 + expandable dropdown |
+| 6+ results | Bullets — frontend collapses to first 5 + expandable dropdown |
 
-### Rate Limit Handling
-- Exponential backoff retry: 2s → 4s → 8s on `RateLimitError`
+### ⚡ Rate Limit Handling
+- Exponential backoff retry: `2s → 4s → 8s` on `RateLimitError` (max 3 attempts)
 - Frontend keep-alive ping every 10 min to prevent Render cold starts
 
 ---
 
-## Guardrails
+## 🛡️ Guardrails
 
 | Guard | Implementation |
 |---|---|
-| Off-topic blocking | LLM classifies query as ALLOWED/BLOCKED before any processing |
-| Write operation prevention | Regex validator blocks Cypher with `CREATE`, `DELETE`, `SET`, `MERGE`, `DROP`, `DETACH` |
+| Off-topic blocking | LLM classifies each query as ALLOWED / BLOCKED before any processing |
+| Write operation prevention | Regex validator blocks `CREATE`, `DELETE`, `SET`, `MERGE`, `DROP`, `DETACH` |
 | Safe fallback | Blocked queries return a polite decline message, not an error |
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 GraphIQ/
 ├── src/
 │   ├── backend/
-│   │   ├── main.py              FastAPI app + CORS + lifecycle
-│   │   ├── config.py            Environment variable loading
+│   │   ├── main.py                FastAPI app + CORS + lifecycle
+│   │   ├── config.py              Environment variable loading
 │   │   ├── routers/
-│   │   │   ├── health.py        GET /api/health
-│   │   │   ├── graph.py         GET /api/graph, /api/graph/node/{id}
-│   │   │   └── chat.py          POST /api/chat (full pipeline)
+│   │   │   ├── health.py          GET /api/health
+│   │   │   ├── graph.py           GET /api/graph, /api/graph/node/{id}
+│   │   │   └── chat.py            POST /api/chat — full pipeline
 │   │   ├── services/
-│   │   │   ├── neo4j_service.py Neo4j driver + query runner
-│   │   │   ├── llm_service.py   Groq two-call pipeline + retry logic
-│   │   │   └── guardrails.py    Query classifier + Cypher validator
+│   │   │   ├── neo4j_service.py   Neo4j driver + query runner
+│   │   │   ├── llm_service.py     Groq two-call pipeline + retry logic
+│   │   │   └── guardrails.py      Query classifier + Cypher validator
 │   │   ├── models/
-│   │   │   └── schemas.py       Pydantic request/response models
+│   │   │   └── schemas.py         Pydantic request/response models
 │   │   └── prompts/
-│   │       ├── system_prompt.txt Shared system prompt (schema + format rules)
-│   │       └── cypher_prompt.txt Cypher generation-specific instructions
+│   │       ├── system_prompt.txt  Shared system prompt (schema + format rules)
+│   │       └── cypher_prompt.txt  Cypher generation-specific instructions
 │   ├── ingestion/
-│   │   ├── preprocess.py        Raw NDJSON → normalized Python dicts
-│   │   ├── graph_builder.py     Neo4j MERGE loader (batched, idempotent)
-│   │   ├── ingest.py            Orchestrator (preprocess → build → validate)
-│   │   └── validate.py          Post-load verification report
+│   │   ├── preprocess.py          Raw NDJSON → normalized Python dicts
+│   │   ├── graph_builder.py       Neo4j MERGE loader (batched, idempotent)
+│   │   ├── ingest.py              Orchestrator (preprocess → build → validate)
+│   │   └── validate.py            Post-load verification report
 │   └── frontend/
-│       ├── index.html           Single-page app shell
-│       ├── style.css            Full dark-mode UI (CSS custom properties)
+│       ├── index.html             Single-page app shell
+│       ├── style.css              Dark-mode UI (CSS custom properties)
 │       └── js/
-│           ├── api.js           REST calls + keep-alive ping
-│           ├── graph.js         Cytoscape init, layout, interactions
-│           ├── chat.js          Chat pipeline, response rendering, dropdowns
-│           └── utils.js         Shared helpers
+│           ├── api.js             REST calls + keep-alive ping
+│           ├── graph.js           Cytoscape init, layout, interactions
+│           ├── chat.js            Chat pipeline, response rendering
+│           └── utils.js           Shared helpers
 ├── sessions/
-│   ├── session_01_planning.md   Architecture + tech decisions
-│   ├── session_02_backend.md    Backend + data ingestion implementation
-│   ├── session_03_frontend.md   Frontend + UI implementation
-│   └── session_04_prompts.md    Prompt engineering + LLM optimization
+│   ├── session_01_planning.md     Architecture + tech decisions
+│   ├── session_02_backend.md      Backend + data ingestion notes
+│   ├── session_03_frontend.md     Frontend + UI implementation notes
+│   └── session_04_prompts.md      Prompt engineering + LLM optimization
 ├── docs/
-│   └── architecture.md          Detailed architecture document
+│   └── architecture.md            Detailed architecture document
 ├── requirements.txt
-├── render.yaml                  Render deployment config
-└── vercel.json                  Vercel deployment config
+├── render.yaml                    Render deployment config
+└── vercel.json                    Vercel deployment config
 ```
 
 ---
 
-## Setup Instructions
+## 🚀 Setup Instructions
 
 ### Prerequisites
 - Python 3.11+
 - Neo4j AuraDB instance (free tier works)
-- Groq API key ([console.groq.com](https://console.groq.com))
+- Groq API key — [console.groq.com](https://console.groq.com)
 
 ### 1. Clone the Repository
 ```bash
@@ -188,7 +186,7 @@ cd GraphIQ
 ### 2. Create Virtual Environment
 ```bash
 python -m venv venv
-# macOS/Linux:
+# macOS / Linux:
 source venv/bin/activate
 # Windows:
 venv\Scripts\activate
@@ -219,7 +217,7 @@ uvicorn src.backend.main:app --reload --port 8000
 ```
 
 ### 7. Open the Frontend
-Open `src/frontend/index.html` in your browser, or serve it with:
+Open `src/frontend/index.html` in your browser, or serve locally:
 ```bash
 python -m http.server 3000 --directory src/frontend
 ```
@@ -232,7 +230,7 @@ GET http://localhost:8000/api/health
 
 ---
 
-## API Reference
+## 📡 API Reference
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -258,13 +256,11 @@ GET http://localhost:8000/api/health
 
 ---
 
-## Sessions
-
-See the `/sessions` folder for detailed notes from each development session:
+## 📓 Sessions
 
 | Session | Topic |
 |---|---|
-| `session_01_planning.md` | Architecture design, tech decisions, graph schema |
-| `session_02_backend.md` | FastAPI, Neo4j, ingestion pipeline, LLM service |
-| `session_03_frontend.md` | Cytoscape.js, chat UI, response rendering pipeline |
-| `session_04_prompts.md` | Prompt engineering, guardrails, LLM optimization |
+| [session_01_planning.md](sessions/session_01_planning.md) | Architecture design, tech decisions, graph schema |
+| [session_02_backend.md](sessions/session_02_backend.md) | FastAPI, Neo4j, ingestion pipeline, LLM service |
+| [session_03_frontend.md](sessions/session_03_frontend.md) | Cytoscape.js, chat UI, response rendering pipeline |
+| [session_04_prompts.md](sessions/session_04_prompts.md) | Prompt engineering, guardrails, LLM optimization |
