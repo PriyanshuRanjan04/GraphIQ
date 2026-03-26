@@ -370,9 +370,25 @@ function showRichTooltip(node) {
 
 // ─── Load Graph ───────────────────────────────────────────────────────────────
 async function loadGraph() {
-  showGraphLoading('Loading graph...');
+  // Staged messages — each advances while backend wakes up
+  const stages = [
+    { msg: '🔌 Connecting to graph engine...', delay: 0    },
+    { msg: '⏳ Waking up backend (free tier)...', delay: 3000  },
+    { msg: '📡 Fetching graph data...', delay: 8000  },
+    { msg: '🔄 Still loading, please wait...', delay: 18000 },
+    { msg: '⏳ Almost there...', delay: 30000 },
+  ];
+  let stageTimers = [];
+  stages.forEach(s => {
+    const t = setTimeout(() => showGraphLoading(s.msg), s.delay);
+    stageTimers.push(t);
+  });
+  showGraphLoading(stages[0].msg);
+
   try {
     const data     = await fetchGraph();
+    stageTimers.forEach(t => clearTimeout(t));   // cancel pending stage messages
+    showGraphLoading('🧩 Building graph...');
     const elements = buildElements(data);
     cy.add(elements);
 
@@ -414,6 +430,13 @@ async function loadGraph() {
     const layout = cy.layout(layoutConfig);
 
     layout.on('layoutstop', function() {
+      showGraphLoading('✨ Rendering...');
+      setTimeout(() => {
+        const overlay = document.getElementById('graph-loading');
+        overlay.style.transition = 'opacity 0.5s ease';
+        overlay.style.opacity = '0';
+        setTimeout(() => { overlay.style.display = 'none'; overlay.style.opacity = '1'; overlay.style.transition = ''; }, 500);
+      }, 400);
       document.getElementById('cy').style.opacity = '1';
       applyPlantSoftDim();
       cy.resize();
