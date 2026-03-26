@@ -26,11 +26,11 @@ The system translates your question into a Neo4j Cypher query, executes it, and 
 |           Vercel  (Static Frontend)                    |
 |     Vanilla JS  +  Cytoscape.js  +  CSS                |
 |                                                        |
-|  +-----------------+        +---------------------+   |
-|  |   Graph Panel   | <----  |     Chat Panel      |   |
-|  |  Cytoscape.js   |        |  NL Input -> Answer |   |
-|  |  8 node types   |        |  Structured display |   |
-|  +-----------------+        +---------------------+   |
+|  +-----------------+        +---------------------+    |
+|  |   Graph Panel   | <----  |     Chat Panel      |    |
+|  |  Cytoscape.js   |        |  NL Input -> Answer |    |
+|  |  8 node types   |        |  Structured display |    |
+|  +-----------------+        +---------------------+    |
 +---------------------------+----------------------------+
                             |  HTTPS REST
                             v
