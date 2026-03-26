@@ -1,7 +1,11 @@
 // GraphIQ - api.js
 // All API calls to the FastAPI backend
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE =
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1'
+    ? 'http://127.0.0.1:8000'
+    : 'https://graphiq-api.onrender.com';
 
 /**
  * Fetch the full graph (all nodes + edges in Cytoscape.js format)
