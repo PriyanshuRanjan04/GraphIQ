@@ -50,6 +50,11 @@ let focusModeActive    = false;   // Focus Connections button state
 let globalFocusMode    = false;   // Background dim toggle
 let hoveredNodeId      = null;
 
+// ─── Minimize / Expand state ──────────────────────────────────────────────────
+let isMinimized      = false;
+let savedGraphWidth  = null;
+let savedChatWidth   = null;
+
 // ─── Initialize Cytoscape ─────────────────────────────────────────────────────
 function initCytoscape() {
   cy = cytoscape({
@@ -885,7 +890,7 @@ function updateGraphStats(nodeCount, edgeCount) {
 }
 
 function initDividerDrag() {
-  const divider   = document.getElementById('panel-divider');
+  const divider    = document.getElementById('panel-divider');
   const graphPanel = document.getElementById('graph-panel');
   const chatPanel  = document.getElementById('chat-panel');
   const container  = document.getElementById('main-container');
@@ -898,6 +903,7 @@ function initDividerDrag() {
     startX = e.clientX;
     startGraphWidth = graphPanel.offsetWidth;
     divider.classList.add('dragging');
+    document.body.classList.add('is-dragging');
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
   });
@@ -910,16 +916,20 @@ function initDividerDrag() {
     const minGraph = containerWidth * 0.45;
     const maxGraph = containerWidth * 0.82;
     if (newGraphWidth < minGraph || newGraphWidth > maxGraph) return;
-    const graphPct = (newGraphWidth / containerWidth) * 100;
-    const chatPct  = 100 - graphPct - 0.3;
-    graphPanel.style.flex = `0 0 ${graphPct}%`;
-    chatPanel.style.flex  = `0 0 ${chatPct}%`;
+    graphPanel.style.flex  = '';
+    graphPanel.style.width = newGraphWidth + 'px';
+    chatPanel.style.flex   = '';
+    chatPanel.style.width  = (containerWidth - newGraphWidth - 4) + 'px';
+    // Keep saved widths in sync during drag
+    savedGraphWidth = newGraphWidth;
+    savedChatWidth  = containerWidth - newGraphWidth - 4;
   });
 
   const endDrag = () => {
     if (!isDragging) return;
     isDragging = false;
     divider.classList.remove('dragging');
+    document.body.classList.remove('is-dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     setTimeout(() => { if (cy) { cy.resize(); } }, 50);
@@ -1000,19 +1010,66 @@ function initGraphControls() {
   document.getElementById('btn-expand-node').addEventListener('click', focusConnections);
 
   // ─ Minimize / Expand ─
-  document.getElementById('btn-minimize').addEventListener('click', function() {
-    const gp   = document.getElementById('graph-panel');
-    const cp   = document.getElementById('chat-panel');
-    const span = this.querySelector('span');
-    const isMin = gp.classList.contains('minimized');
-    if (isMin) {
-      gp.classList.remove('minimized'); cp.classList.remove('expanded');
-      if (span) span.textContent = 'Minimize';
-      setTimeout(() => { cy.resize(); cy.animate({ fit: { padding: 60 } }, { duration: 350 }); }, 340);
-    } else {
-      gp.classList.add('minimized'); cp.classList.add('expanded');
-      if (span) span.textContent = 'Expand';
-    }
+  const btnMinimize = document.getElementById('btn-minimize');
+  const _graphPanel = document.getElementById('graph-panel');
+  const _chatPanel  = document.getElementById('chat-panel');
+  const _container  = document.getElementById('main-container');
+
+  if (btnMinimize) {
+    btnMinimize.addEventListener('click', function() {
+      const span = this.querySelector('span');
+      const divider = document.getElementById('panel-divider');
+
+      if (!isMinimized) {
+        // MINIMIZING: save current widths, then collapse graph
+        savedGraphWidth = _graphPanel.offsetWidth;
+        savedChatWidth  = _chatPanel.offsetWidth;
+        const cw = _container.offsetWidth;
+
+        _graphPanel.style.flex     = '';
+        _graphPanel.style.width    = '0px';
+        _graphPanel.style.overflow = 'hidden';
+        _graphPanel.style.minWidth = '0px';
+        _chatPanel.style.flex      = '';
+        _chatPanel.style.width     = (cw - 4) + 'px';
+
+        if (span) span.textContent = 'Expand';
+        if (divider) divider.style.display = 'none';
+        isMinimized = true;
+
+      } else {
+        // EXPANDING: restore saved widths (or fallback to defaults)
+        const cw = _container.offsetWidth;
+        const restoreGraph = savedGraphWidth || cw * 0.72;
+        const restoreChat  = savedChatWidth  || cw * 0.28;
+
+        _graphPanel.style.width    = restoreGraph + 'px';
+        _graphPanel.style.overflow = '';
+        _graphPanel.style.minWidth = '';
+        _chatPanel.style.width     = restoreChat + 'px';
+
+        if (span) span.textContent = 'Minimize';
+        if (divider) divider.style.display = '';
+        isMinimized = false;
+
+        // Resize and refit Cytoscape after transition
+        setTimeout(() => {
+          if (cy) { cy.resize(); cy.fit(undefined, 40); }
+        }, 100);
+      }
+    });
+  }
+
+  // Initialize saved widths from actual rendered sizes after load
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const gp = document.getElementById('graph-panel');
+      const cp = document.getElementById('chat-panel');
+      if (gp && cp) {
+        savedGraphWidth = gp.offsetWidth;
+        savedChatWidth  = cp.offsetWidth;
+      }
+    }, 500);
   });
 
   // ─ Overlay toggle ─
