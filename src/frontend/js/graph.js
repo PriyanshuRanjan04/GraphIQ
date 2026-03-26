@@ -417,8 +417,6 @@ async function loadGraph() {
       document.getElementById('cy').style.opacity = '1';
       applyPlantSoftDim();
       cy.resize();
-      cy.fit(undefined, 60);
-      cy.center();
 
       // Initial label visibility based on starting zoom
       updateLabelVisibility();
@@ -428,6 +426,38 @@ async function loadGraph() {
 
       // Populate ctrl-stats
       updateGraphStats(cy.nodes().length, cy.edges().length);
+
+      // Stage 1 (100ms): reposition Plant nodes in an even ring around main cluster
+      setTimeout(() => {
+        const plantNodes = cy.nodes().filter(n => n.data('label') === 'Plant');
+        const mainNodes  = cy.nodes().filter(n => n.data('label') !== 'Plant');
+
+        if (mainNodes.length > 0 && plantNodes.length > 0) {
+          const bb      = mainNodes.boundingBox();
+          const centerX = (bb.x1 + bb.x2) / 2;
+          const centerY = (bb.y1 + bb.y2) / 2;
+          const radius  = Math.max(bb.x2 - bb.x1, bb.y2 - bb.y1) / 2 + 80;
+          const total   = plantNodes.length;
+
+          plantNodes.forEach((node, i) => {
+            const angle = (2 * Math.PI * i) / total;
+            node.position({
+              x: centerX + radius * Math.cos(angle),
+              y: centerY + radius * Math.sin(angle),
+            });
+          });
+        }
+
+        // Stage 2 (300ms): fit everything and nudge pan right
+        setTimeout(() => {
+          cy.fit(undefined, 80);
+          cy.center();
+          const pan = cy.pan();
+          cy.pan({ x: pan.x + 60, y: pan.y });
+          if (zoomEl) zoomEl.textContent = Math.round(cy.zoom() * 100) + '%';
+        }, 200);
+
+      }, 100);
     });
 
     layout.run();
