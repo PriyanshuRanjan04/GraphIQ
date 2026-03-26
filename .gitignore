@@ -14,3 +14,6 @@ TILL NOW/
 
 # Local reference guides
 DEPLOYMENT.md
+
+# IDE / type-checker config (local only)
+pyrightconfig.json
