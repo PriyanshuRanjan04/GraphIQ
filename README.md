@@ -1,4 +1,4 @@
-# 🧠 GraphIQ — Order-to-Cash Graph Intelligence
+# 🧠 GraphIQ : Order-to-Cash Graph Intelligence
 
 > Natural-language querying and interactive graph visualization for SAP Order-to-Cash data, powered by Neo4j, Groq LLM, and Cytoscape.js.
 
