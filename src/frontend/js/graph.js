@@ -376,33 +376,49 @@ async function loadGraph() {
     const elements = buildElements(data);
     cy.add(elements);
 
-    const layout = cy.layout({
-      name:              'cose',
-      animate:           true,
-      animationDuration: 700,
-      nodeRepulsion:     n => n.data('label') === 'Plant' ? 200000 : 1200000,
-      idealEdgeLength:   e => {
-        const s = e.source().data('label'), t = e.target().data('label');
-        return (s === 'Plant' || t === 'Plant') ? 80 : 160;
+    const layoutConfig = {
+      name: 'cose',
+      animate: true,
+      animationDuration: 800,
+      animationEasing: 'ease-in-out',
+
+      // Force all nodes together
+      nodeRepulsion: function(node) {
+        return 8192;
       },
-      edgeElasticity:    () => 0.30,
-      gravity:           60,
-      gravityRange:      1.8,
-      numIter:           1500,
-      initialTemp:       250,
-      coolingFactor:     0.97,
-      minTemp:           1.0,
-      componentSpacing:  100,
-      fit:               true,
-      padding:           60,
-      randomize:         false,
-    });
+      nodeOverlap: 4,
+      idealEdgeLength: function(edge) {
+        return 50;
+      },
+      edgeElasticity: function(edge) {
+        return 100;
+      },
+      nestingFactor: 5,
+      gravity: 250,
+      gravityRange: 3.8,
+      gravityCompound: 1.0,
+      gravityRangeCompound: 1.5,
+
+      numIter: 2500,
+      initialTemp: 1000,
+      coolingFactor: 0.99,
+      minTemp: 1.0,
+
+      // Pull disconnected nodes in
+      componentSpacing: 40,
+
+      fit: true,
+      padding: 40,
+      randomize: false
+    };
+    const layout = cy.layout(layoutConfig);
 
     layout.on('layoutstop', function() {
       document.getElementById('cy').style.opacity = '1';
       applyPlantSoftDim();
       cy.resize();
-      cy.fit(null, 60);
+      cy.fit(undefined, 60);
+      cy.center();
 
       // Initial label visibility based on starting zoom
       updateLabelVisibility();
