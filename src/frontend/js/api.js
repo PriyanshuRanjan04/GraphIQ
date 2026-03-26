@@ -28,7 +28,15 @@ async function sendChat(query) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
   });
-  if (!res.ok) throw new Error(`Chat request failed: ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    // Try to read the server's error detail for a more precise message
+    let detail = `Chat request failed: ${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      if (body && body.detail) detail = body.detail;
+    } catch (_) { /* ignore parse errors */ }
+    throw new Error(detail);
+  }
   return res.json();
 }
 

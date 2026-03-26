@@ -571,6 +571,14 @@ button { font-family: var(--font); cursor: pointer; }
 
 .error-icon   { margin-right: 4px; }
 .error-bubble { background: rgba(245,166,35,0.08); border-left: 2px solid #F5A623; color: #F5A623; border-radius: 0 var(--radius) var(--radius) 0; }
+.error-retry-btn {
+  display: inline-block; margin-top: 8px;
+  background: rgba(245,166,35,0.12); border: 1px solid rgba(245,166,35,0.35);
+  border-radius: 5px; color: #F5A623; font-size: var(--text-xs);
+  padding: 4px 10px; cursor: pointer; transition: all 0.15s; font-family: var(--font);
+}
+.error-retry-btn:hover { background: rgba(245,166,35,0.22); border-color: #F5A623; }
+
 
 .loading-bubble    { display: flex; align-items: center; gap: 10px; }
 .loading-step-text { font-size: var(--text-sm); color: var(--text-secondary); transition: opacity 0.2s ease; }

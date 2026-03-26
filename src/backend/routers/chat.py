@@ -46,7 +46,18 @@ async def chat(request: ChatRequest):
         logger.info(f"Generated Cypher: {cypher}")
     except Exception as e:
         logger.error(f"Cypher generation failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate query: {e}")
+        err_str = str(e)
+        if "rate limit" in err_str.lower() or "429" in err_str:
+            user_msg = (
+                "The AI service is temporarily rate-limited due to high usage. "
+                "Please wait 30 seconds and try again."
+            )
+        else:
+            user_msg = (
+                "The AI query engine encountered an error. "
+                "Please try rephrasing your question."
+            )
+        return ChatResponse(answer=user_msg, cypher="", raw_results=[], allowed=True)
 
     # Step 3: Validate Cypher
     validation = validate_cypher(cypher)

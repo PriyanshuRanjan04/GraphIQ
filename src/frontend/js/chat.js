@@ -666,7 +666,14 @@ async function handleSend() {
     response = await sendChat(query);
   } catch (err) {
     console.error('[GraphIQ] sendChat error:', err);
-    errorMsg = 'The backend is waking up — this can take 15–30 seconds on first request. Please try again in a moment.';
+    const msg = err.message || '';
+    if (msg.includes('rate limit') || msg.includes('429') || msg.includes('rate-limit')) {
+      errorMsg = '⏳ The AI service is rate-limited. Please wait ~30 seconds and try again.';
+    } else if (msg.includes('502') || msg.includes('503') || msg.includes('504')) {
+      errorMsg = '🔄 The backend is starting up. Please wait a moment and try again.';
+    } else {
+      errorMsg = '⚠️ Could not reach the server. Please check your connection and try again.';
+    }
   }
 
   stepTimers.forEach(t => clearTimeout(t));
@@ -675,7 +682,7 @@ async function handleSend() {
   if (currentLoadingMsgEl) { currentLoadingMsgEl.remove(); currentLoadingMsgEl = null; }
 
   if (errorMsg) {
-    appendErrorMessage(errorMsg);
+    appendErrorMessage(errorMsg, query);  // pass query for retry button
     isSending = false; setInputState(true); setAgentStatus(false);
     scrollToBottom(document.getElementById('chat-messages'));
     return;
@@ -784,13 +791,21 @@ function appendBotResponse(data, query, elapsed) {
   scrollToBottom(document.getElementById('chat-messages'));
 }
 
-function appendErrorMessage(msg) {
+function appendErrorMessage(msg, retryQuery) {
   const el = document.createElement('div');
   el.className = 'msg bot-msg';
+  const retryBtn = retryQuery
+    ? `<button class="error-retry-btn" onclick="
+        this.closest('.msg').remove();
+        document.getElementById('chat-input').value = ${JSON.stringify(retryQuery)};
+        handleSend();
+      ">↩ Try Again</button>`
+    : '';
   el.innerHTML = `
     <div class="msg-icon">🤖</div>
     <div class="msg-bubble error-bubble">
       <span class="error-icon">⚠️</span>${escapeHtml(msg)}
+      ${retryBtn}
     </div>
   `;
   document.getElementById('chat-messages').appendChild(el);
