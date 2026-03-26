@@ -11,3 +11,6 @@ dist/
 .venv/
 venv/
 TILL NOW/
+
+# Local reference guides
+DEPLOYMENT.md
