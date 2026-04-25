@@ -41,9 +41,9 @@ The system translates your question into a Neo4j Cypher query, executes it, and 
 |  Guardrail -> Cypher Gen -> Validator                  |
 |           -> Neo4j Exec  -> Answer Gen                 |
 |                                                        |
-|  GET /api/graph   - nodes + edges for visualization    |
-|  GET /api/health  - connectivity check                 |
-+-------------+------------------------------+-----------+
+|  GET /api/graph         - nodes + edges for visualization |
+|  GET+HEAD /api/health   - connectivity check               |
++-------------+------------------------------+--------------+
               |                              |
               v                              v
 +-------------+-----------+  +--------------+----------+
@@ -65,6 +65,7 @@ The system translates your question into a Neo4j Cypher query, executes it, and 
 | Graph Database | Neo4j AuraDB (cloud) |
 | LLM | Groq API — `llama-3.3-70b-versatile` |
 | Deployment | Vercel (frontend) + Render (backend) |
+| Scheduler | APScheduler (Neo4j keep-alive, async) |
 
 ---
 
@@ -114,6 +115,23 @@ GraphIQ uses a **two-call LLM pipeline** per query:
 
 ---
 
+## 🟢 Production Reliability
+
+### Neo4j Keep-Alive Scheduler
+Neo4j AuraDB Free pauses after ~3 days of inactivity. GraphIQ runs an **APScheduler background job** (every 23 hours) that pings the database with `RETURN 1` to keep the connection alive — no manual intervention needed on the free tier.
+
+### Uptime Monitor Compatibility
+Monitoring tools like UptimeRobot send `HEAD` requests to verify uptime. Both the root `/` endpoint and `/api/health` accept **`GET` and `HEAD`** so monitors never trigger false 405 alerts.
+
+### Frontend Render Performance
+The initial Cytoscape.js graph layout (713 nodes, 1045 edges) was optimized for faster first render:
+- **`animate: false`** during layout — eliminates per-iteration canvas repaints (was the primary cause of 30–40 s load time)
+- **`numIter` reduced from 2500 → 600** — adequate spacing with ~75% less compute
+- **`coolingFactor` 0.99 → 0.95** — faster simulated annealing convergence
+- Result: initial render drops from ~35 s to ~5–8 s on the hosted site
+
+---
+
 ## 🛡️ Guardrails
 
 | Guard | Implementation |
@@ -133,7 +151,7 @@ GraphIQ/
 │   │   ├── main.py                FastAPI app + CORS + lifecycle
 │   │   ├── config.py              Environment variable loading
 │   │   ├── routers/
-│   │   │   ├── health.py          GET /api/health
+│   │   │   ├── health.py          GET+HEAD /api/health
 │   │   │   ├── graph.py           GET /api/graph, /api/graph/node/{id}
 │   │   │   └── chat.py            POST /api/chat — full pipeline
 │   │   ├── services/
@@ -236,7 +254,8 @@ GET http://localhost:8000/api/health
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/health` | Backend + Neo4j health check |
+| `GET` `HEAD` | `/` | Service root — uptime monitor compatible |
+| `GET` `HEAD` | `/api/health` | Backend + Neo4j health check |
 | `GET` | `/api/graph` | All nodes + edges (Cytoscape.js format) |
 | `GET` | `/api/graph/node/{id}` | Single node + immediate neighbors |
 | `POST` | `/api/chat` | Natural language query → structured answer |
