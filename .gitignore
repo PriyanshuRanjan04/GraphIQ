@@ -17,3 +17,7 @@ DEPLOYMENT.md
 
 # IDE / type-checker config (local only)
 pyrightconfig.json
+
+# AI usage tracking (local only)
+ai_usage_summary.md
+ai_coding_logs.zip

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Health"])
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse)
 async def health_check():
     """Check API health and Neo4j database connectivity."""
     neo4j_connected = False

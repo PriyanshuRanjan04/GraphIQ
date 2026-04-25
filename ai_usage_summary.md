@@ -1,7 +1,7 @@
 # AI Coding Session Summary — GraphIQ
 
 **Project:** GraphIQ — Order-to-Cash Graph Intelligence  
-**Candidate:** Priyanshu Ranjan  
+**Candidate:** name
 **Submission Date:** March 2026
 
 ---
