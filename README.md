@@ -34,16 +34,16 @@ The system translates your question into a Neo4j Cypher query, executes it, and 
 +---------------------------+----------------------------+
                             |  HTTPS REST
                             v
-+---------------------------+----------------------------+
-|           Render  (FastAPI Backend)                    |
-|                                                        |
-|  POST /api/chat                                        |
-|  Guardrail -> Cypher Gen -> Validator                  |
-|           -> Neo4j Exec  -> Answer Gen                 |
-|                                                        |
-|  GET /api/graph         - nodes + edges for visualization |
-|  GET+HEAD /api/health   - connectivity check               |
-+-------------+------------------------------+--------------+
++---------------------------+-----------------------------+
+|           Render  (FastAPI Backend)                     |
+|                                                         |
+|  POST /api/chat                                         |
+|  Guardrail -> Cypher Gen -> Validator                   |
+|           -> Neo4j Exec  -> Answer Gen                  |
+|                                                         |
+|  GET /api/graph        - nodes + edges for visualization|
+|  GET+HEAD /api/health  - connectivity check             |
++-------------+------------------------------+------------+
               |                              |
               v                              v
 +-------------+-----------+  +--------------+----------+
