@@ -372,7 +372,7 @@ function showRichTooltip(node) {
 async function loadGraph() {
   // Staged messages — each advances while backend wakes up
   const stages = [
-    { msg: '🔌 Connecting to graph engine...', delay: 0    },
+    { msg: '🔄 Loading Order-to-Cash graph…', delay: 0    },
     { msg: '⏳ Waking up backend...', delay: 3000  },
     { msg: '📡 Fetching graph data...', delay: 8000  },
     { msg: '🔄 Still loading, please wait...', delay: 18000 },
@@ -394,30 +394,26 @@ async function loadGraph() {
 
     const layoutConfig = {
       name: 'cose',
-      animate: true,
-      animationDuration: 800,
-      animationEasing: 'ease-in-out',
+      // ── Performance: disable per-iteration rendering ──────────────────────
+      // animate:true re-paints the canvas on every physics iteration.
+      // With 600 iterations across 713 nodes this was the primary cause of the
+      // 30–40 s initial render delay. Setting false lets the engine compute all
+      // positions internally then snap to the result in a single paint.
+      animate: false,
 
-      // Force all nodes together
-      nodeRepulsion: function(node) {
-        return 8192;
-      },
+      nodeRepulsion: function(node) { return 4096; },  // halved — less force-calc overhead
       nodeOverlap: 4,
-      idealEdgeLength: function(edge) {
-        return 50;
-      },
-      edgeElasticity: function(edge) {
-        return 100;
-      },
+      idealEdgeLength: function(edge) { return 50; },
+      edgeElasticity: function(edge) { return 100; },
       nestingFactor: 5,
       gravity: 250,
       gravityRange: 3.8,
       gravityCompound: 1.0,
       gravityRangeCompound: 1.5,
 
-      numIter: 2500,
-      initialTemp: 1000,
-      coolingFactor: 0.99,
+      numIter: 600,        // reduced from 2500 — good-enough spacing, far less compute
+      initialTemp: 800,    // reduced from 1000
+      coolingFactor: 0.95, // faster annealing than 0.99 — converges in fewer steps
       minTemp: 1.0,
 
       // Pull disconnected nodes in
@@ -425,7 +421,7 @@ async function loadGraph() {
 
       fit: true,
       padding: 40,
-      randomize: false
+      randomize: false,
     };
     const layout = cy.layout(layoutConfig);
 
