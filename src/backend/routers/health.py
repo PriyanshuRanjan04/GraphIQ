@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api", tags=["Health"])
 @router.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse)
 async def health_check():
     """Check API health and Neo4j database connectivity."""
+    logger.info("Health check ping received")
     neo4j_connected = False
     try:
         driver = get_driver()

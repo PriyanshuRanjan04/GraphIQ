@@ -64,7 +64,7 @@ app.include_router(graph.router)
 app.include_router(chat.router)
 
 
-@app.get("/", tags=["Root"])
+@app.api_route("/", methods=["GET", "HEAD"], tags=["Root"])
 async def root():
-    """Root endpoint confirming the API is running."""
-    return {"message": "GraphIQ API is running"}
+    """Root endpoint — confirms the API is running. Supports GET and HEAD for uptime monitors."""
+    return {"status": "ok", "service": "GraphIQ backend"}
